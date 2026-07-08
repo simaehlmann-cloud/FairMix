@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FairMix</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#003366">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon.png">
+
+<style>
+body {
+  margin: 0;
+  padding: 0;
+  background: #bcdcff;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  color: #003366;
+}
+.page { display: none; padding: 20px; }
+.active { display: block; }
+
+#fairmixBar {
+  width: 100%;
+  background: #ffd4d4;
+  padding: 25px 0;
+  font-size: 60px;
+  font-weight: bold;
+  margin-bottom: 30px;
+}
+
+/* Touch-optimierte Buttons */
+.btn {
+  padding: 14px 24px;
+  font-size: 18px;
+  border: none;
+  border-radius: 12px;
+  color: white;
+  cursor: pointer;
+  margin: 8px;
+  min-height: 48px; /* Mindestgröße für Touch */
+  transition: opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:hover { opacity: 0.9; }
+.red { background: #cc0000; }
+.green { background: #009933; }
+.blue { background: #0066cc; }
+
+.start-btn {
+  width: 240px;
+  height: 65px;
+  border-radius: 14px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 22px;
+  font-weight: bold;
+  color: white;
+  cursor: pointer;
+  margin: 18px auto;
+  transition: transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.start-btn:hover { transform: scale(1.03); }
+
+input, select {
+  padding: 12px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: 2px solid #0055aa;
+  width: 260px;
+  background: white;
+  color: #003366;
+  margin: 5px;
+}
+
+#nameList, .groupBox, .teamBox {
+  width: 280px;
+  margin: 10px auto;
+  background: white;
+  padding: 10px;
+  border-radius: 10px;
+  border: 2px solid #0055aa;
+  color: #003366;
+}
+
+/* Namensliste mit mobilem Lösch-Button */
+#nameList li { 
+  list-style: none; 
+  margin-bottom: 8px; 
+  text-align: left; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px dashed #bcdcff;
+}
+#nameList li:last-child { border-bottom: none; }
+.delete-item-btn {
+  background: #ffcccc;
+  border: none;
+  color: #cc0000;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* Touch-freundlicher Checkbox-Container */
+.checkbox-container {
+  width: 280px;
+  margin: 10px auto;
+  background: white;
+  padding: 12px;
+  border-radius: 10px;
+  border: 2px solid #0055aa;
+  max-height: 200px;
+  overflow-y: auto;
+  text-align: left;
+}
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.checkbox-item input {
+  width: 22px;
+  height: 22px;
+  margin-right: 12px;
+  cursor: pointer;
+}
+
+.fixedPerson {
+  background: #fff7d1;
+  border-left: 6px solid #ffcc00;
+  font-weight: bold;
+}
+
+.bigDisplay {
+  margin: 20px auto;
+  font-size: 28px;
+  font-weight: bold;
+  color: #003366;
+  background: #fff;
+  padding: 15px;
+  border-radius: 10px;
+  border: 3px solid #0055aa;
+  width: 280px;
+  display: none;
+  word-break: break-word;
+}
+
+/* Animiertes Rütteln bei der Slot-Machine */
+@keyframes pulseDisplay {
+  0% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.7; }
+}
+.animating {
+  animation: pulseDisplay 0.15s infinite;
+  color: #ff6600 !important;
+}
+
+/* Handy-optimierte Navigationsleiste (nebeneinander & flexibel) */
+.nav {
+  display: none;
+  margin-bottom: 20px;
+  background: #003366;
+  padding: 10px;
+}
+.nav-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+.nav .btn { 
+  margin: 2px; 
+  font-size: 13px; 
+  padding: 10px 14px; 
+  min-height: auto; 
+  flex: 1 1 auto; 
+  max-width: 140px;
+}
+.nav .active-nav { outline: 3px solid white; font-weight: bold; }
+</style>
+</head>
+
+<body>
+
+<div id="mainNav" class="nav">
+  <div class="nav-container">
+    <button id="nav-pageStart" class="btn red" onclick="showPage('pageStart')">Start</button>
+    <button id="nav-pageNames" class="btn green" onclick="showPage('pageNames')">Namen</button>
+    <button id="nav-pageDraw" class="btn blue" onclick="showPage('pageDraw')">Namen ziehen</button>
+    <button id="nav-pageGroups" class="btn blue" onclick="showPage('pageGroups')">Gruppen manuell</button>
+    <button id="nav-pageTeams" class="btn blue" onclick="showPage('pageTeams')">Gruppen zufällig</button>
+  </div>
+</div>
+
+<div id="pageStart" class="page active">
+  <div id="fairmixBar">FairMix</div>
+  <div class="start-btn green" onclick="showPage('pageNames')">Namen verwalten</div>
+  <div class="start-btn blue" onclick="showPage('pageDraw')">Namen ziehen</div>
+  <div class="start-btn blue" onclick="showPage('pageGroups')">Gruppen erstellen</div>
+  <div class="start-btn blue" onclick="showPage('pageTeams')">Gruppen zufällig</div>
+  <button class="btn red" onclick="showPage('pageAbout')">Über FairMix</button>
+</div>
+
+<div id="pageNames" class="page">
+  <h2>Namen verwalten</h2>
+  <input id="nameInput" placeholder="Name eingeben">
+  <button class="btn green" onclick="addName()">Hinzufügen</button>
+
+  <h3>Aktive Namen</h3>
+  <ul id="nameList"></ul>
+
+  <button class="btn blue" onclick="sortNames()">Sortieren</button>
+  <button class="btn red" onclick="resetNames()">Zurücksetzen</button>
+  <button class="btn red" onclick="deleteAllNames()">Alle löschen</button>
+
+  <h3>CSV importieren</h3>
+  <input type="file" id="csvFile" accept=".csv">
+  <button class="btn blue" onclick="importCSV()">Importieren</button>
+
+  <h3>Listen speichern / laden</h3>
+  <input id="saveNameInput" placeholder="Name der Liste">
+  <button class="btn green" onclick="saveNames()">Speichern</button>
+
+  <select id="savedNamesSelect"></select>
+  <button class="btn blue" onclick="loadNames()">Laden</button>
+  <button class="btn red" onclick="deleteSavedNames()">Löschen</button>
+
+  <div id="bigDisplayNames" class="bigDisplay"></div>
+  <br>
+  <button class="btn red" onclick="showPage('pageStart')">Zur Startseite</button>
+</div>
+
+<div id="pageDraw" class="page">
+  <h2>Zufällige Namensauswahl</h2>
+  <button class="btn blue" onclick="pickRandomNameWithAnimation()">Ziehen</button>
+  <button class="btn red" onclick="resetDraw()">Anzeige zurücksetzen</button>
+
+  <div id="bigDisplayDraw" class="bigDisplay"></div>
+  <br>
+  <button class="btn red" onclick="showPage('pageStart')">Zur Startseite</button>
+</div>
+
+<div id="pageGroups" class="page">
+  <h2>Manuelle Gruppenbildung</h2>
+  <input id="groupNameInput" placeholder="Gruppenname">
+  <button class="btn green" onclick="addGroup()">Gruppe anlegen</button>
+
+  <h3>Namen zuordnen</h3>
+  <select id="groupSelect"></select>
+  <ul id="assignList"></ul>
+
+  <button class="btn red" onclick="resetGroups()">Alle Gruppen löschen</button>
+
+  <h3>Gruppen</h3>
+  <div id="groupsContainer"></div>
+  <button class="btn blue" onclick="drawRandomGroupWithAnimation()">Zufällige Gruppe anzeigen</button>
+
+  <div id="bigDisplayGroups" class="bigDisplay"></div>
+  <br>
+  <button class="btn red" onclick="showPage('pageStart')">Zur Startseite</button>
+</div>
+
+<div id="pageTeams" class="page">
+  <h2>Automatische Gruppenerstellung</h2>
+  <input id="teamCount" type="number" placeholder="Anzahl Gruppen">
+  <input id="teamSize" type="number" placeholder="Gruppengröße">
+
+  <h3>Fixierte Personen auswählen</h3>
+  <div id="fixedCheckboxContainer" class="checkbox-container"></div>
+
+  <button class="btn blue" onclick="generateTeams()">Generieren</button>
+  <button class="btn red" onclick="resetGroups()">Zurücksetzen</button>
+
+  <h3>Erstellte Gruppen</h3>
+  <div id="teamsContainer"></div>
+  <button class="btn blue" onclick="drawRandomGroupWithAnimation()">Zufällige Gruppe anzeigen</button>
+
+  <div id="bigDisplayTeams" class="bigDisplay"></div>
+  <br>
+  <button class="btn red" onclick="showPage('pageStart')">Zur Startseite</button>
+</div>
+
+<div id="pageAbout" class="page">
+  <h2>Über FairMix</h2>
+  <div style="max-width:650px; margin:0 auto; background:#fff; padding:25px; border-radius:14px; border:3px solid #0055aa; text-align:left; box-shadow:0 0 12px rgba(0,0,0,0.15);">
+    <p style="font-size:20px; font-weight:bold; margin-top:0; color:#0055aa;">FairMix ist dein mobiles Werkzeug zur schnellen, unkomplizierten Verwaltung von Namen und zur vollkommen fairen Zusammensetzung von Gruppen.</p>
+    
+    <h3 style="color:#0055aa; margin-top:20px;">💡 Die Kernfunktionen im Überblick:</h3>
+    <ul>
+      <li><strong>Flexible Namensverwaltung:</strong> Trage Namen manuell ein, sortiere sie alphabetisch oder importiere fertige CSV-Klassenlisten mit nur einem Fingertipp.</li>
+      <li><strong>Zufällige Auslosung:</strong> Ziehe einzelne Namen per Zufall mit einem spannenden Slot-Machine-Effekt. Bereits gezogene Namen scheiden automatisch aus.</li>
+      <li><strong>Manuelle Zuweisung:</strong> Erstelle eigene Gruppen und ordne Personen per Klick manuell zu.</li>
+      <li><strong>Intelligente Gruppen-Automatik:</strong> Bestimme entweder die gewünschte Anzahl an Teams oder die feste Gruppengröße. Auf Wunsch werden fixierte Personen absolut fair aufgeteilt.</li>
+    </ul>
+
+    <h3 style="color:#0055aa; margin-top:20px;">🛡️ Datenschutz & Offline-Garantie</h3>
+    <p>Deine Daten gehören dir. FairMix speichert Listen ausschließlich lokal auf deinem Gerät. Es gibt keine Registrierung, keine Tracker und es wird keinerlei Internetverbindung benötigt – ideal für den direkten Einsatz im Unterricht, bei Trainings oder Projekten.</p>
+    
+    <hr style="border:0; border-top:1px solid #bcdcff; margin:20px 0;">
+    <p style="font-size:14px; text-align:center; color:#555; margin-bottom:0;">
+      <strong>Entwickelt von:</strong> Simon Mählmann<br>
+      Version 1.2 (Installierbare Web-App)
+    </p>
+  </div>
+  <br>
+  <button class="btn red" onclick="showPage('pageStart')">Zur Startseite</button>
+</div>
+
+<script>
+let originalNames = [];
+let activeNames = [];
+let groups = {};
+let teams = [];
+let fixedPersons = [];
+let displayTimeout;
+let isAnimating = false;
+
+// DOM-Elemente referenzieren
+const nameInput = document.getElementById("nameInput");
+const nameList = document.getElementById("nameList");
+const csvFile = document.getElementById("csvFile");
+const saveNameInput = document.getElementById("saveNameInput");
+const savedNamesSelect = document.getElementById("savedNamesSelect");
+const groupNameInput = document.getElementById("groupNameInput");
+const groupSelect = document.getElementById("groupSelect");
+const assignList = document.getElementById("assignList");
+const groupsContainer = document.getElementById("groupsContainer");
+const teamsContainer = document.getElementById("teamsContainer");
+const fixedCheckboxContainer = document.getElementById("fixedCheckboxContainer");
+const teamCount = document.getElementById("teamCount");
+const teamSize = document.getElementById("teamSize");
+const mainNav = document.getElementById("mainNav");
+
+function getDisplay(){
+  if (document.getElementById("pageDraw").classList.contains("active")) return document.getElementById("bigDisplayDraw");
+  if (document.getElementById("pageGroups").classList.contains("active")) return document.getElementById("bigDisplayGroups");
+  if (document.getElementById("pageTeams").classList.contains("active")) return document.getElementById("bigDisplayTeams");
+  if (document.getElementById("pageNames").classList.contains("active")) return document.getElementById("bigDisplayNames");
+  return null;
+}
+
+function showPage(id){
+  if(isAnimating) return; 
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+
+  const isStartOrAbout = (id === "pageStart" || id === "pageAbout");
+  mainNav.style.display = isStartOrAbout ? "none" : "block";
+
+  document.querySelectorAll('.nav .btn').forEach(b => b.classList.remove('active-nav'));
+  const activeNavBtn = document.getElementById("nav-" + id);
+  if(activeNavBtn) activeNavBtn.classList.add('active-nav');
+
+  const disp = getDisplay();
+  if(disp) disp.style.display = "none";
+
+  updateAssignList();
+  updateGroupSelect();
+  updateFixedCheckboxList();
+  updateSavedNamesSelect();
+}
+
+function showBig(t, autoHide = false){
+  const disp = getDisplay();
+  if(!disp) return;
+  disp.textContent = t;
+  disp.style.display = "block";
+  
+  clearTimeout(displayTimeout);
+  if(autoHide) {
+    displayTimeout = setTimeout(() => { disp.style.display = "none"; }, 4000);
+  }
+}
+
+function addName(){
+  const n = nameInput.value.trim();
+  if(!n) return;
+  originalNames.push(n);
+  activeNames.push(n);
+  nameInput.value = "";
+  updateList();
+  updateAssignList();
+  updateFixedCheckboxList();
+}
+
+function deleteSingleName(index){
+  const nameToRemove = activeNames[index];
+  activeNames.splice(index, 1);
+  const origIdx = originalNames.indexOf(nameToRemove);
+  if(origIdx !== -1) originalNames.splice(origIdx, 1);
+  fixedPersons = fixedPersons.filter(p => p !== nameToRemove);
+
+  updateList();
+  updateAssignList();
+  updateFixedCheckboxList();
+}
+
+function updateList(){
+  nameList.innerHTML = "";
+  activeNames.forEach((n,i)=>{
+    const li = document.createElement("li");
+    
+    const textSpan = document.createElement("span");
+    textSpan.textContent = (i+1) + ". " + n;
+    li.appendChild(textSpan);
+    
+    const delBtn = document.createElement("button");
+    delBtn.className = "delete-item-btn";
+    delBtn.textContent = "❌";
+    delBtn.onclick = () => deleteSingleName(i);
+    li.appendChild(delBtn);
+
+    nameList.appendChild(li);
+  });
+}
+
+function sortNames(){
+  activeNames.sort((a,b)=>a.localeCompare(b,'de'));
+  originalNames.sort((a,b)=>a.localeCompare(b,'de'));
+  updateList();
+  updateAssignList();
+  updateFixedCheckboxList();
+}
+
+function importCSV(){
+  const file = csvFile.files[0];
+  if(!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    let rawText = e.target.result.replace(/^\uFEFF/,"").replace(/\r/g,"");
+    let separators = /[\n,;]/;
+    const lines = rawText.split(separators).map(l => l.trim()).filter(l => l);
+    
+    originalNames = [...lines];
+    activeNames = [...lines];
+    fixedPersons = [];
+    groups = {};
+    teams = [];
+    updateList();
+    updateAssignList();
+    updateGroupSelect();
+    updateFixedCheckboxList();
+    showBig("CSV erfolgreich importiert!", true);
+  };
+  r.readAsText(file,"UTF-8");
+}
+
+/* ANIMIERTES NAMEN ZIEHEN */
+function pickRandomNameWithAnimation(){
+  if(isAnimating) return;
+  if(activeNames.length === 0){
+    showBig("Keine Namen mehr!");
+    return;
+  }
+
+  isAnimating = true;
+  const disp = getDisplay();
+  disp.style.display = "block";
+  disp.classList.add("animating");
+
+  let counter = 0;
+  const duration = 1000; 
+  const intervalTime = 60; 
+  
+  const interval = setInterval(() => {
+    const randomTmpName = originalNames[Math.floor(Math.random() * originalNames.length)];
+    disp.textContent = randomTmpName || "...";
+    counter += intervalTime;
+    
+    if(counter >= duration) {
+      clearInterval(interval);
+      disp.classList.remove("animating");
+      
+      const i = Math.floor(Math.random() * activeNames.length);
+      const chosenName = activeNames[i];
+      activeNames.splice(i, 1);
+      
+      updateList();
+      updateAssignList();
+      updateFixedCheckboxList();
+      
+      disp.textContent = chosenName;
+      isAnimating = false;
+    }
+  }, intervalTime);
+}
+
+function resetDraw(){
+  if(isAnimating) return;
+  const disp = getDisplay();
+  if(disp) disp.style.display = "none";
+  activeNames = [...originalNames];
+  updateList();
+  updateAssignList();
+  updateFixedCheckboxList();
+}
+
+function resetNames(){
+  activeNames = [...originalNames];
+  fixedPersons = [];
+  updateList();
+  updateAssignList();
+  updateFixedCheckboxList();
+}
+
+function deleteAllNames(){
+  originalNames = [];
+  activeNames = [];
+  updateList();
+  updateAssignList();
+  updateFixedCheckboxList();
+}
+
+function updateSavedNamesSelect(){
+  const saved = JSON.parse(localStorage.getItem("fairmix_saved_lists") || "{}");
+  savedNamesSelect.innerHTML = "";
+  Object.keys(saved).forEach(k=>{
+    const o = document.createElement("option");
+    o.value = k;
+    o.textContent = k;
+    savedNamesSelect.appendChild(o);
+  });
+}
+
+function saveNames(){
+  const name = saveNameInput.value.trim();
+  if(!name){
+    showBig("Bitte Namen eingeben", true);
+    return;
+  }
+  const saved = JSON.parse(localStorage.getItem("fairmix_saved_lists") || "{}");
+  saved[name] = { original: originalNames, active: activeNames };
+  localStorage.setItem("fairmix_saved_lists", JSON.stringify(saved));
+  updateSavedNamesSelect();
+  saveNameInput.value = "";
+  showBig("Liste gespeichert!", true);
+}
+
+// ... Rest des bewährten Codes bleibt identisch ...
+
+function loadNames(){
+  const name = savedNamesSelect.value;
+  if(!name){
+    showBig("Bitte Liste auswählen", true);
+    return;
+  }
+  const saved = JSON.parse(localStorage.getItem("fairmix_saved_lists") || "{}");
+  const d = saved[name];
+  originalNames = [...d.original];
+  activeNames = [...d.active];
+  updateList();
+  updateAssignList();
+  updateFixedCheckboxList();
+  showBig("Liste geladen!", true);
+}
+
+function deleteSavedNames(){
+  const name = savedNamesSelect.value;
+  if(!name) {
+    showBig("Bitte Liste auswählen", true);
+    return;
+  }
+  const saved = JSON.parse(localStorage.getItem("fairmix_saved_lists") || "{}");
+  delete saved[name];
+  localStorage.setItem("fairmix_saved_lists", JSON.stringify(saved));
+  updateSavedNamesSelect();
+  showBig("Liste gelöscht!", true);
+}
+
+function addGroup(){
+  const g = groupNameInput.value.trim();
+  if(!g) return;
+  groups[g] = [];
+  groupNameInput.value = "";
+  updateGroups();
+  updateGroupSelect();
+}
+
+function updateGroups(){
+  groupsContainer.innerHTML = "";
+  Object.keys(groups).forEach(g=>{
+    const box = document.createElement("div");
+    box.className = "groupBox";
+    const h = document.createElement("h3");
+    h.textContent = g;
+    box.appendChild(h);
+    const ul = document.createElement("ul");
+    groups[g].forEach(n=>{
+      const li = document.createElement("li");
+      li.textContent = n;
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    groupsContainer.appendChild(box);
+  });
+}
+
+function updateAssignList(){
+  assignList.innerHTML = "";
+  activeNames.forEach(n=>{
+    const li = document.createElement("li");
+    li.textContent = n;
+    li.style.cursor = "pointer";
+    li.style.padding = "10px";
+    li.style.borderBottom = "1px solid #bcdcff";
+    li.onclick = () => assignToSelectedGroup(n);
+    assignList.appendChild(li);
+  });
+}
+
+function updateGroupSelect(){
+  groupSelect.innerHTML = "";
+  Object.keys(groups).forEach(g=>{
+    const o = document.createElement("option");
+    o.value = g;
+    o.textContent = g;
+    groupSelect.appendChild(o);
+  });
+}
+
+function assignToSelectedGroup(name){
+  const g = groupSelect.value;
+  if(!g) return;
+  groups[g].push(name);
+  activeNames = activeNames.filter(n => n !== name);
+  updateAssignList();
+  updateGroups();
+  updateList();
+  updateFixedCheckboxList();
+}
+
+function resetGroups(){
+  groups = {};
+  teams = [];
+  fixedPersons = [];
+  activeNames = [...originalNames];
+  groupsContainer.innerHTML = "";
+  teamsContainer.innerHTML = "";
+  updateGroups();
+  updateGroupSelect();
+  updateAssignList();
+  updateList();
+  updateFixedCheckboxList();
+}
+
+function drawRandomGroupWithAnimation(){
+  if(isAnimating) return;
+  const manual = Object.keys(groups);
+  let availablePool = [];
+  let isManualMode = true;
+
+  if(manual.length > 0){
+    availablePool = manual;
+    isManualMode = true;
+  } else if(teams.length > 0){
+    availablePool = teams.map((_, idx) => "Gruppe " + (idx + 1));
+    isManualMode = false;
+  } else {
+    showBig("Keine Gruppen vorhanden!");
+    return;
+  }
+
+  isAnimating = true;
+  const disp = getDisplay();
+  disp.style.display = "block";
+  disp.classList.add("animating");
+
+  let counter = 0;
+  const duration = 1000;
+  const intervalTime = 70;
+
+  const interval = setInterval(() => {
+    const randomTmpGroup = availablePool[Math.floor(Math.random() * availablePool.length)];
+    disp.textContent = randomTmpGroup;
+    counter += intervalTime;
+
+    if(counter >= duration) {
+      clearInterval(interval);
+      disp.classList.remove("animating");
+      const finalGroup = availablePool[Math.floor(Math.random() * availablePool.length)];
+      disp.textContent = isManualMode ? "Gruppe: " + finalGroup : finalGroup;
+      isAnimating = false;
+    }
+  }, intervalTime);
+}
+
+function updateFixedCheckboxList(){
+  fixedCheckboxContainer.innerHTML = "";
+  if(activeNames.length === 0) {
+    fixedCheckboxContainer.textContent = "Keine aktiven Namen vorhanden.";
+    return;
+  }
+  activeNames.forEach(n => {
+    const label = document.createElement("label");
+    label.className = "checkbox-item";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = n;
+    if(fixedPersons.includes(n)) cb.checked = true;
+    cb.onchange = () => {
+      if(cb.checked) {
+        if(!fixedPersons.includes(n)) fixedPersons.push(n);
+      } else {
+        fixedPersons = fixedPersons.filter(p => p !== n);
+      }
+    };
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(n));
+    fixedCheckboxContainer.appendChild(label);
+  });
+}
+
+function generateTeams(){
+  if(isAnimating) return;
+  const count = parseInt(teamCount.value);
+  const size = parseInt(teamSize.value);
+  const all = [...activeNames];
+  if(all.length === 0) {
+    showBig("Bitte zuerst Namen hinzufügen!", true);
+    return;
+  }
+  const fixed = all.filter(n => fixedPersons.includes(n));
+  let free = all.filter(n => !fixedPersons.includes(n));
+  for (let i = free.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [free[i], free[j]] = [free[j], free[i]];
+  }
+  let groupsCount = count;
+  if(!groupsCount && size) groupsCount = Math.ceil(all.length / size);
+  if(!groupsCount) groupsCount = 1;
+  teams = Array.from({length: groupsCount}, () => []);
+  fixed.forEach((n,i)=>teams[i % groupsCount].push(n));
+  const total = all.length;
+  const base = Math.floor(total / groupsCount);
+  const rest = total % groupsCount;
+  let gi = 0;
+  free.forEach(n=>{
+    const target = base + (gi < rest ? 1 : 0);
+    if(teams[gi].length < target){
+      teams[gi].push(n);
+    } else {
+      let next = (gi+1) % groupsCount;
+      while(teams[next].length >= base + (next < rest ? 1 : 0)){
+        next = (next+1) % groupsCount;
+      }
+      teams[next].push(n);
+      gi = next;
+    }
+    gi = (gi+1) % groupsCount;
+  });
+  renderTeams();
+}
+
+function renderTeams(){
+  teamsContainer.innerHTML = "";
+  teams.forEach((t,i)=>{
+    const box = document.createElement("div");
+    box.className = "teamBox";
+    const h = document.createElement("h3");
+    h.textContent = "Gruppe " + (i+1);
+    box.appendChild(h);
+    const ul = document.createElement("ul");
+    t.forEach(n=>{
+      const li = document.createElement("li");
+      li.textContent = n;
+      if(fixedPersons.includes(n)) li.classList.add("fixedPerson");
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    teamsContainer.appendChild(box);
+  });
+}
+
+/* SERVICE WORKER REGISTRIERUNG */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.log("SW Fehler", err));
+  });
+}
+</script>
+</body>
+</html>
