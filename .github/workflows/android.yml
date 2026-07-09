@@ -1,0 +1,56 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install Cordova
+      run: npm install -g cordova
+
+    - name: Create Cordova Project
+      run: |
+        # 1. Neues temporäres Cordova-Projekt erstellen
+        cordova create fairmix_build de.fairmix.app FairMix
+        
+        # 2. Die Konfiguration und dein hochgeladenes Icon hineinschieben
+        cp config.xml fairmix_build/config.xml
+        cp icon.png fairmix_build/icon.png || true
+        
+        cd fairmix_build
+        
+        # 3. Android-Plattform frisch hinzufügen
+        cordova platform add android
+        
+        # 4. Deine echten App-Dateien (index.html, manifest.json, sw.js) kopieren
+        rm -rf www/*
+        cp -r ../* www/ || true
+        
+        # 5. Build-Ordner sauber aufräumen
+        rm -rf www/fairmix_build www/.github
+        
+        # 6. Cache-Bereinigung erzwingen, damit das Logo sofort zieht
+        cordova clean android --no-telemetry
+        
+        # 7. Die APK final zusammenbauen
+        cordova build android --device --no-telemetry
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: FairMix-APK
+        path: fairmix_build/platforms/android/app/build/outputs/apk/debug/app-debug.apk
