@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="de.fairmix.app" version="1.2.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>FairMix</name>
+    <description>Mobiles Werkzeug zur Verwaltung von Namen und fairen Gruppenbildung.</description>
+    <author email="info@fairmix.de" href="http://fairmix.de">Simon Mählmann</author>
+    <content src="index.html" />
+    <access origin="*" />
+    <allow-intent href="http://*/*" />
+    <allow-intent href="https://*/*" />
+    
+    <platform name="android">
+        <!-- Das offizielle App-Logo für Android zuweisen -->
+        <icon src="icon.png" />
+    </platform>
+</widget>
