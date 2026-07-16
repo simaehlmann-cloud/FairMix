@@ -1,0 +1,2015 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>FairMix Pro</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#003366">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon.png">
+
+<script src="html2canvas.min.js"></script>
+
+<style>
+/* ---------- CSS Variablen für Dark / Light Mode ---------- */
+:root {
+  --bg-color: #bcdcff;
+  --text-color: #003366;
+  --card-bg: #ffffff;
+  --border-color: #0055aa;
+  --header-bg: #ffd4d4;
+  --input-bg: #ffffff;
+  --modal-bg: rgba(0, 30, 60, 0.6);
+  --list-border: #bcdcff;
+}
+
+body.dark-mode {
+  --bg-color: #121220;
+  --text-color: #e0e0e0;
+  --card-bg: #1e1e30;
+  --border-color: #4a90e2;
+  --header-bg: #332020;
+  --input-bg: #2a2a40;
+  --modal-bg: rgba(0, 0, 0, 0.8);
+  --list-border: #444;
+}
+
+/* ---------- Grundlayout ---------- */
+body {
+  margin: 0; padding: 0;
+  background: var(--bg-color);
+  font-family: Arial, sans-serif;
+  text-align: center;
+  color: var(--text-color);
+  transition: background 0.3s, color 0.3s;
+}
+.page { display: none; padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+.active { display: block; }
+
+body { padding-top: env(safe-area-inset-top); }
+
+#fairmixBar {
+  width: 100%; background: var(--header-bg); padding: 25px 0;
+  font-size: clamp(34px, 11vw, 60px); font-weight: bold; margin-bottom: 30px;
+  transition: background 0.3s;
+}
+
+/* ---------- Theme & Export Buttons ---------- */
+.top-controls {
+  position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px;
+  display: flex; gap: 8px; z-index: 1000;
+}
+.icon-btn {
+  background: var(--card-bg); border: 2px solid var(--border-color);
+  color: var(--text-color); font-size: 1.2rem; cursor: pointer;
+  border-radius: 50%; width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.2s;
+}
+.icon-btn:hover { transform: scale(1.1); }
+
+/* ---------- Standard Buttons ---------- */
+.btn {
+  padding: 14px 24px; font-size: 18px; border: none; border-radius: 12px;
+  color: white; cursor: pointer; margin: 8px; min-height: 48px;
+  transition: opacity 0.2s; -webkit-tap-highlight-color: transparent;
+}
+.btn:hover { opacity: 0.9; }
+.red   { background: #cc0000; }
+.green { background: #009933; }
+.blue  { background: #0066cc; }
+.purple { background: #663399; }
+.orange { background: #ff8800; color: white; font-weight: bold; }
+
+.start-btn {
+  width: 260px; height: 65px; border-radius: 14px; display: flex;
+  justify-content: center; align-items: center; font-size: 22px;
+  font-weight: bold; color: white; cursor: pointer; margin: 18px auto;
+  transition: transform 0.1s; -webkit-tap-highlight-color: transparent;
+}
+.start-btn:hover { transform: scale(1.03); }
+
+/* ---------- Formulare ---------- */
+input, select {
+  padding: 12px; font-size: 16px; border-radius: 8px;
+  border: 2px solid var(--border-color); width: 260px;
+  background: var(--input-bg); color: var(--text-color);
+  margin: 5px; box-sizing: border-box;
+}
+
+/* ---------- Container ---------- */
+#nameList, .groupBox, .teamBox {
+  width: 280px; margin: 10px auto; background: var(--card-bg);
+  padding: 10px; border-radius: 10px; border: 2px solid var(--border-color);
+  color: var(--text-color); box-sizing: border-box;
+}
+
+.export-container {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+  padding: 10px; background: var(--bg-color); border-radius: 10px;
+}
+
+/* ---------- Listen ---------- */
+#nameList li, .groupBox li, .teamBox li {
+  list-style: none; margin-bottom: 8px; text-align: left;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px dashed var(--list-border); flex-wrap: wrap;
+}
+#nameList li:last-child, .groupBox li:last-child, .teamBox li:last-child { border-bottom: none; }
+.delete-item-btn {
+  background: #ffcccc; border: none; color: #cc0000; border-radius: 6px;
+  padding: 6px 12px; font-size: 14px; font-weight: bold; cursor: pointer;
+}
+
+/* ----- Abwesend‑Button ----- */
+.absent-btn { background: transparent; border: none; font-size: 1.2rem; cursor: pointer; margin-left: 8px; }
+.absent-btn.present { color: #009933; }
+.absent-btn.absent  { color: #cc0000; }
+.absent-name { text-decoration: line-through; color: #777; }
+
+/* ---------- NEU: Chip-Auswahl für fixierte Personen ---------- */
+.chip-container {
+  max-width: 400px; margin: 10px auto; background: var(--card-bg); padding: 12px;
+  border-radius: 10px; border: 2px solid var(--border-color); max-height: 220px;
+  overflow-y: auto; box-sizing: border-box;
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+}
+.chip {
+  padding: 8px 14px; border-radius: 20px; border: 2px solid var(--border-color);
+  background: var(--input-bg); color: var(--text-color); cursor: pointer;
+  font-size: 15px; -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s, background 0.15s;
+}
+.chip:active { transform: scale(0.95); }
+.chip.selected { background: #fff7d1; border-color: #ffcc00; font-weight: bold; }
+.chip.selected::before { content: "📌 "; }
+body.dark-mode .chip.selected { background: #3a3a20; }
+.fixed-count { font-size: 14px; margin: 4px 0 8px 0; font-weight: bold; min-height: 18px; }
+
+/* ---------- NEU: Drag & Drop ---------- */
+.member-handle {
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+  font-size: 18px; color: var(--border-color); padding: 2px 6px;
+}
+.member-handle:active { cursor: grabbing; }
+.member-remove {
+  background: #ffcccc; border: none; color: #cc0000; border-radius: 6px;
+  padding: 4px 8px; font-size: 12px; font-weight: bold; cursor: pointer;
+}
+.drag-ghost {
+  position: fixed; z-index: 4000; pointer-events: none;
+  background: var(--card-bg); color: var(--text-color);
+  border: 2px solid var(--border-color); border-radius: 8px;
+  padding: 8px 14px; font-weight: bold; font-size: 15px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+  transform: translate(-50%, -60%);
+}
+.drop-target { outline: 3px dashed #ff8800; outline-offset: 3px; }
+
+/* ---------- NEU: Ziehungs-Status von Gruppen ---------- */
+.group-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.group-header h3 { margin: 8px 0; word-break: break-word; }
+.draw-toggle {
+  border: 2px solid var(--border-color); background: var(--input-bg); color: var(--text-color);
+  border-radius: 14px; padding: 4px 10px; font-size: 12px; font-weight: bold;
+  cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color: transparent;
+}
+.drawn-group { opacity: 0.6; }
+.drawn-group .group-header h3 { text-decoration: line-through; }
+
+/* ---------- Fixierte Personen ---------- */
+.fixedPerson {
+  background: #fff7d1; border-left: 6px solid #ffcc00; font-weight: bold;
+}
+body.dark-mode .fixedPerson { background: #3a3a20; }
+
+/* ---------- Rollenkarten UI ---------- */
+.role-badge {
+  display: inline-flex; align-items: center; background: #e6f0ff; color: #003366;
+  padding: 4px 8px; border-radius: 12px; font-size: 14px; font-weight: bold;
+  border: 1px solid #0055aa; margin-top: 4px; width: fit-content;
+}
+body.dark-mode .role-badge { background: #003366; color: #e6f0ff; border-color: #4a90e2; }
+.role-select { width: 100%; margin-top: 6px; padding: 6px; font-size: 14px; }
+
+/* ---------- Modal für Rollen-Verwaltung ---------- */
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: var(--modal-bg); z-index: 2000; justify-content: center; align-items: center;
+}
+.modal-content {
+  background: var(--card-bg); padding: 20px; border-radius: 14px; width: 90%; max-width: 400px;
+  max-height: 85vh; overflow-y: auto; text-align: left; border: 3px solid var(--border-color); box-sizing: border-box;
+}
+.modal-content h3, .modal-content h4 { margin-top: 0; color: var(--text-color); }
+.role-row {
+  display: flex; align-items: center; margin-bottom: 10px; background: var(--bg-color);
+  padding: 8px; border-radius: 8px; border: 1px solid var(--list-border);
+}
+.role-row input[type="checkbox"] { width: 22px; height: 22px; margin-right: 12px; cursor: pointer; }
+.role-row span { flex-grow: 1; font-size: 15px; }
+.role-form { border-top: 2px dashed var(--border-color); padding-top: 15px; margin-top: 15px; }
+.role-form input { width: 100%; margin: 4px 0 10px 0; }
+.role-form-row { display: flex; gap: 8px; }
+.role-form-row input:first-child { width: 60px; text-align: center; font-size: 20px; }
+
+/* ---------- Große Anzeige ---------- */
+.bigDisplay {
+  margin: 20px auto; font-size: 28px; font-weight: bold; color: var(--text-color); background: var(--card-bg);
+  padding: 15px; border-radius: 10px; border: 3px solid var(--border-color); width: 280px; display: none;
+  word-break: break-word; z-index: 1000; position: relative; box-sizing: border-box;
+}
+
+@keyframes pulseDisplay { 0% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.05);opacity: 1; } 100% { transform: scale(1); opacity: 0.7; } }
+.animating { animation: pulseDisplay 0.15s infinite; color: #ff6600 !important; }
+
+/* ---------- Navigation ---------- */
+.nav { display: none; margin-bottom: 20px; background: var(--header-bg); padding: 10px; }
+.nav-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.nav .btn { margin: 2px; font-size: 13px; padding: 10px 14px; min-height: auto; flex: 1 1 auto; max-width: 140px; }
+.nav .active-nav { outline: 3px solid var(--text-color); font-weight: bold; }
+
+/* ---------- Sprach‑Switcher ---------- */
+.lang-switcher { position: fixed; bottom: calc(12px + env(safe-area-inset-bottom)); right: 12px; display: flex; gap: 6px; z-index: 1000; }
+.lang-btn { background: transparent; border: none; font-size: 1.6rem; cursor: pointer; line-height: 1; padding: 2px; }
+.lang-btn:hover { opacity: 0.8; }
+.csv-label { position: relative; z-index: 1000; cursor: pointer; }
+.csv-label, #csvFile { pointer-events: auto; }
+
+/* ---------- NEU: Präsentationsmodus ---------- */
+.present-overlay {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: var(--bg-color); z-index: 3000; overflow-y: auto;
+  padding: 20px; box-sizing: border-box;
+}
+.present-overlay.open { display: block; }
+.present-close {
+  position: fixed; top: calc(14px + env(safe-area-inset-top)); right: 14px; z-index: 3001;
+  width: 52px; height: 52px; font-size: 1.6rem;
+}
+
+/* ---------- NEU: Paar-Regeln (zusammen / getrennt) ---------- */
+#pairRulesList {
+  width: 280px; margin: 10px auto; background: var(--card-bg);
+  padding: 10px; border-radius: 10px; border: 2px solid var(--border-color);
+  color: var(--text-color); box-sizing: border-box;
+}
+#pairRulesList li {
+  list-style: none; margin-bottom: 8px; text-align: left;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px dashed var(--list-border);
+}
+#pairRulesList li:last-child { border-bottom: none; }
+.pair-select { width: 128px; }
+
+/* ---------- NEU: Gruppen umbenennen ---------- */
+.rename-btn {
+  background: transparent; border: none; font-size: 1rem;
+  cursor: pointer; padding: 2px 4px;
+}
+.present-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px; max-width: 1400px; margin: 60px auto 20px auto;
+}
+.present-card {
+  background: var(--card-bg); border: 3px solid var(--border-color);
+  border-radius: 16px; padding: 20px; text-align: left;
+}
+.present-card h3 { font-size: 34px; margin: 0 0 14px 0; text-align: center; }
+.present-card ul { margin: 0; padding: 0; }
+.present-card li {
+  list-style: none; font-size: 26px; padding: 8px 0;
+  border-bottom: 1px dashed var(--list-border);
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;
+}
+.present-card li:last-child { border-bottom: none; }
+.present-card .role-badge { font-size: 16px; }
+
+/* ---------- NEU: Undo-Toast ---------- */
+.undo-toast {
+  display: none; position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%);
+  background: #222; color: #fff; padding: 12px 18px; border-radius: 12px;
+  z-index: 3500; align-items: center; gap: 14px; font-size: 15px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35); max-width: 90%;
+}
+.undo-toast.show { display: flex; }
+.undo-toast button {
+  background: transparent; border: none; color: #ffcc00; font-weight: bold;
+  font-size: 15px; cursor: pointer; padding: 4px 8px; white-space: nowrap;
+}
+</style>
+</head>
+<body>
+
+<div class="top-controls">
+  <button class="icon-btn" onclick="toggleTheme()" title="Tag/Nacht Modus">🌗</button>
+</div>
+
+<div id="langSwitcher" class="lang-switcher">
+  <button class="lang-btn" data-lang="de" aria-label="Deutsch">🇩🇪</button>
+  <button class="lang-btn" data-lang="en" aria-label="English">🇬🇧</button>
+</div>
+
+<div id="mainNav" class="nav">
+  <div class="nav-container">
+    <button id="nav-pageStart"   class="btn red"   onclick="showPage('pageStart')"   data-i18n="navStart">Start</button>
+    <button id="nav-pageNames"   class="btn green" onclick="showPage('pageNames')"   data-i18n="navNames">Namen</button>
+    <button id="nav-pageDraw"    class="btn blue"  onclick="showPage('pageDraw')"    data-i18n="navDraw">Ziehen</button>
+    <button id="nav-pageGroups"  class="btn blue"  onclick="showPage('pageGroups')"  data-i18n="navGroups">Gruppen manuell erstellen</button>
+    <button id="nav-pageTeams"   class="btn blue"  onclick="showPage('pageTeams')"   data-i18n="navTeams">Gruppen zufällig erstellen</button>
+  </div>
+</div>
+
+<div id="pageStart" class="page active">
+  <div id="fairmixBar">FairMix Pro</div>
+
+  <div class="start-btn green" onclick="showPage('pageNames')" data-i18n="btnManageNames">Namen verwalten</div>
+  <div class="start-btn blue" onclick="showPage('pageDraw')" data-i18n="btnDrawNames">Namen zufällig ziehen</div>
+  <div class="start-btn blue" onclick="showPage('pageGroups')" data-i18n="btnCreateGroups">Gruppen manuell erstellen</div>
+  <div class="start-btn blue" onclick="showPage('pageTeams')" data-i18n="btnRandomGroups">Gruppen zufällig erstellen</div>
+
+  <button class="btn red" onclick="showPage('pageAbout')" data-i18n="btnAbout">Über FairMix</button>
+</div>
+
+<div id="pageNames" class="page">
+  <h2 data-i18n="titleNames">Namen verwalten</h2>
+  <input id="nameInput" placeholder="Name eingeben" data-i18n-placeholder="placeholderName">
+  <button class="btn green" onclick="addName()" data-i18n="btnAddName">Hinzufügen</button>
+  
+  <h3 data-i18n="titleActiveNames">Aktive Namen</h3>
+  <ul id="nameList"></ul>
+  
+  <button class="btn blue" onclick="sortNames()" data-i18n="btnSortNames">Sortieren</button>
+  <button class="btn red" onclick="resetNames()" data-i18n="btnResetNames">Zurücksetzen</button>
+  <button class="btn red" onclick="deleteAllNames()" data-i18n="btnDeleteAllNames">Alle löschen</button>
+  
+  <h3 data-i18n="titleCSVImport">CSV importieren</h3>
+  <label for="csvFile" class="csv-label">
+    <span data-i18n="btnChooseFile" class="btn blue">Datei wählen</span>
+    <input type="file" id="csvFile" accept=".csv,text/csv" style="display:none;" onchange="importCSV()">
+  </label>
+  
+  <h3 data-i18n="titleSaveLoad">Listen speichern / laden</h3>
+  <input id="saveNameInput" placeholder="Name der Liste" data-i18n-placeholder="placeholderSaveName">
+  <button class="btn green" onclick="saveNames()" data-i18n="btnSaveNames">Speichern</button>
+  <select id="savedNamesSelect"></select>
+  <button class="btn blue" onclick="loadNames()" data-i18n="btnLoadNames">Laden</button>
+  <button class="btn red" onclick="deleteSavedNames()" data-i18n="btnDeleteSavedNames">Löschen</button>
+  
+  <h3 data-i18n="titleBackup">Backup (Datei)</h3>
+  <button class="btn green" onclick="exportData()" data-i18n="btnExportData">⬇️ Backup exportieren</button>
+  <label for="jsonFile" class="csv-label">
+    <span data-i18n="btnImportData" class="btn blue">⬆️ Backup importieren</span>
+    <input type="file" id="jsonFile" accept=".json,application/json" style="display:none;" onchange="importData()">
+  </label>
+  
+  <div id="bigDisplayNames" class="bigDisplay"></div>
+  <br>
+  <button class="btn red" onclick="showPage('pageStart')" data-i18n="btnBackToStart">Zur Startseite</button>
+</div>
+
+<div id="pageDraw" class="page">
+  <h2 data-i18n="titleDraw">Zufällige Namensauswahl</h2>
+  <button class="btn blue" onclick="pickRandomNameWithAnimation()" data-i18n="btnDraw">Ziehen</button>
+  <button class="btn red" onclick="resetDraw()" data-i18n="btnResetDraw">Anzeige zurücksetzen</button>
+  <div id="bigDisplayDraw" class="bigDisplay"></div>
+  <br>
+  <button class="btn red" onclick="showPage('pageStart')" data-i18n="btnBackToStart">Zur Startseite</button>
+</div>
+
+<div id="pageGroups" class="page">
+  <h2 data-i18n="titleGroups">Manuelle Gruppenbildung</h2>
+  <button class="btn purple" onclick="openRoleModal()" data-i18n="btnManageRoles">Rollen verwalten</button>
+  <br>
+  <input id="groupNameInput" placeholder="Gruppenname" data-i18n-placeholder="placeholderGroupName">
+  <button class="btn green" onclick="addGroup()" data-i18n="btnAddGroup">Gruppe anlegen</button>
+  
+  <h3 data-i18n="titleAssignNames">Namen zuordnen</h3>
+  <select id="groupSelect"></select>
+  <ul id="assignList"></ul>
+  
+  <button class="btn red" onclick="resetGroups()" data-i18n="btnResetGroups">Alle Gruppen löschen</button>
+  <button class="btn orange" onclick="exportAsImage('groupsContainer')" data-i18n="btnExportImage">Als Bild speichern</button>
+  <button class="btn purple" onclick="openPresentation('manual')" data-i18n="btnPresentMode">🎦 Präsentation</button>
+  
+  <h3 data-i18n="titleGroupsList">Gruppen</h3>
+  <div id="groupsContainer" class="export-container"></div>
+  
+  <button class="btn blue" onclick="drawRandomGroupWithAnimation('manual')" data-i18n="btnRandomGroup">Zufällige Gruppe anzeigen</button>
+  <button class="btn red" onclick="resetGroupDraw('manual')" data-i18n="btnResetGroupDraw">🔄 Ziehung zurücksetzen</button>
+  <div id="bigDisplayGroups" class="bigDisplay"></div>
+  <br>
+  <button class="btn red" onclick="showPage('pageStart')" data-i18n="btnBackToStart">Zur Startseite</button>
+</div>
+
+<div id="pageTeams" class="page">
+  <h2 data-i18n="titleTeams">Automatische Gruppenerstellung</h2>
+  <button class="btn purple" onclick="openRoleModal()" data-i18n="btnManageRoles">Rollen verwalten</button>
+  <br>
+  
+  <input id="teamCount" type="number" min="1" step="1" placeholder="Anzahl Gruppen" data-i18n-placeholder="placeholderTeamCount">
+  <input id="teamSize" type="number" min="1" step="1" placeholder="Gruppengröße" data-i18n-placeholder="placeholderTeamSize">
+  
+  <h3 data-i18n="titleFixedPersons">Fixierte Personen auswählen</h3>
+  <input id="fixedSearch" placeholder="Namen suchen..." data-i18n-placeholder="placeholderFixedSearch" oninput="updateFixedChipList()">
+  <div id="fixedChipContainer" class="chip-container"></div>
+  <div id="fixedCount" class="fixed-count"></div>
+  
+  <h3 data-i18n="titlePairRules">Regeln: zusammen / getrennt</h3>
+  <select id="pairSelectA" class="pair-select"></select>
+  <select id="pairSelectB" class="pair-select"></select>
+  <br>
+  <button class="btn green" onclick="addPairRule('together')" data-i18n="btnPairTogether">🔗 Immer zusammen</button>
+  <button class="btn red" onclick="addPairRule('apart')" data-i18n="btnPairApart">🚫 Nie zusammen</button>
+  <ul id="pairRulesList" style="display:none;"></ul>
+  
+  <button class="btn blue" onclick="generateTeams()" data-i18n="btnGenerateTeams">Generieren</button>
+  <button class="btn red" onclick="resetGroups()" data-i18n="btnResetTeams">Zurücksetzen</button>
+  <button class="btn orange" onclick="exportAsImage('teamsContainer')" data-i18n="btnExportImage">Als Bild speichern</button>
+  <button class="btn purple" onclick="openPresentation('auto')" data-i18n="btnPresentMode">🎦 Präsentation</button>
+  
+  <h3 data-i18n="titleCreatedTeams">Erstellte Gruppen</h3>
+  <div id="teamsContainer" class="export-container"></div>
+  
+  <button class="btn blue" onclick="drawRandomGroupWithAnimation('auto')" data-i18n="btnRandomTeam">Zufällige Gruppe anzeigen</button>
+  <button class="btn red" onclick="resetGroupDraw('auto')" data-i18n="btnResetGroupDraw">🔄 Ziehung zurücksetzen</button>
+  <div id="bigDisplayTeams" class="bigDisplay"></div>
+  <br>
+  <button class="btn red" onclick="showPage('pageStart')" data-i18n="btnBackToStart">Zur Startseite</button>
+</div>
+
+<div id="pageAbout" class="page">
+  <h2 data-i18n="aboutTitle">Über FairMix</h2>
+  <div style="max-width:600px; margin:0 auto; text-align:left; background:var(--card-bg); padding:20px; border-radius:10px; border:3px solid var(--border-color);">
+    <p>FairMix Pro ist ein digitales Werkzeug für Lehrkräfte, Kursleitende und alle, die im pädagogischen Kontext arbeiten. Unser Ziel ist es, die Organisation von Gruppenprozessen so einfach, fair und effizient wie möglich zu gestalten.</p>
+    <p>In vielen Unterrichtssituationen ist eine spontane und faire Gruppeneinteilung wichtig. Manuelle Listen oder Zettelwirtschaft kosten Zeit und führen oft zu Unmut bei den Teilnehmenden. FairMix löst dieses Problem durch eine intuitive Benutzeroberfläche, die es ermöglicht, Namen einzupflegen und per Zufallsprinzip in Gruppen einzuteilen.</p>
+    <p>Zusätzlich zur reinen Gruppeneinteilung bietet FairMix ein integriertes Rollensystem. Das Zuweisen von Rollenkarten (wie Moderator, Zeitwächter oder Sprecher) strukturiert die Zusammenarbeit und stellt sicher, dass alle Gruppenmitglieder eine klare und verantwortungsvolle Aufgabe haben.</p>
+    <p>Die Anwendung besticht dabei durch ihre Sicherheit und Privatsphäre: Da FairMix vollständig lokal im Browser läuft, verlassen Ihre Daten zu keinem Zeitpunkt das Gerät. Es ist keine Internetverbindung erforderlich, und es findet keine Übermittlung an externe Server statt.</p>
+    <p>FairMix Pro – Einfach, sicher und fair für deinen Unterricht.</p>
+  </div>
+  <br>
+  <button class="btn red" onclick="showPage('pageStart')" data-i18n="btnBackToStart">Zur Startseite</button>
+</div>
+
+<div id="roleModal" class="modal-overlay">
+  <div class="modal-content">
+    <h3 data-i18n="modalRolesTitle">Rollen auswählen & bearbeiten</h3>
+    <p data-i18n="modalRolesDesc" style="font-size:14px;">Wähle die Rollen, die verteilt werden sollen. Deaktivierte Rollen werden nicht genutzt.</p>
+    
+    <div id="roleManagementList"></div>
+    
+    <div class="role-form">
+      <h4 data-i18n="modalRolesCustomTitle" style="margin-top:0;">Eigene Rolle erstellen</h4>
+      <div class="role-form-row">
+        <input id="newRoleIcon" placeholder="🎨" maxlength="4" title="Emoji">
+        <input id="newRoleName" placeholder="Rollenname" data-i18n-placeholder="modalRolesCustomName">
+      </div>
+      <input id="newRoleDesc" placeholder="Kurze Beschreibung..." data-i18n-placeholder="modalRolesCustomDesc">
+      <button class="btn green" style="width:100%; margin:0;" onclick="addCustomRole()" data-i18n="btnAddCustomRole">Rolle hinzufügen</button>
+    </div>
+    
+    <button class="btn red" style="width:100%; margin:15px 0 0 0;" onclick="closeRoleModal()">Schließen</button>
+  </div>
+</div>
+
+<!-- NEU: Präsentationsmodus Overlay -->
+<div id="presentOverlay" class="present-overlay">
+  <button class="icon-btn present-close" onclick="closePresentation()" aria-label="Schließen">✕</button>
+  <div id="presentGrid" class="present-grid"></div>
+</div>
+
+<!-- NEU: Undo-Toast -->
+<div id="undoToast" class="undo-toast">
+  <span id="undoText"></span>
+  <button onclick="performUndo()" data-i18n="btnUndo">Rückgängig</button>
+</div>
+
+<script>
+/* -------------------------------------------------
+   1️⃣  Übersetzungen (i18n)
+   ------------------------------------------------- */
+const i18n = {
+  de: {
+    navStart: "Start", 
+    navNames: "Namen", 
+    navDraw: "Ziehen", 
+    navGroups: "Gruppen manuell erstellen", 
+    navTeams: "Gruppen zufällig erstellen",
+    btnManageNames: "Namen verwalten", 
+    btnDrawNames: "Namen zufällig ziehen", 
+    btnCreateGroups: "Gruppen manuell erstellen", 
+    btnRandomGroups: "Gruppen zufällig erstellen", 
+    btnAbout: "Über FairMix",
+    titleNames: "Namen verwalten", 
+    placeholderName: "Name eingeben", 
+    btnAddName: "Hinzufügen", 
+    titleActiveNames: "Aktive Namen", 
+    btnSortNames: "Sortieren", 
+    btnResetNames: "Zurücksetzen", 
+    btnDeleteAllNames: "Alle löschen",
+    titleCSVImport: "CSV importieren", 
+    btnChooseFile: "Datei wählen", 
+    btnImportCSV: "Importieren", 
+    titleSaveLoad: "Listen speichern / laden", 
+    placeholderSaveName: "Name der Liste", 
+    btnSaveNames: "Speichern", 
+    btnLoadNames: "Laden", 
+    btnDeleteSavedNames: "Löschen", 
+    btnBackToStart: "Zur Startseite",
+    titleDraw: "Zufällige Namensauswahl", 
+    btnDraw: "Ziehen", 
+    btnResetDraw: "Anzeige zurücksetzen",
+    titleGroups: "Manuelle Gruppenbildung", 
+    placeholderGroupName: "Gruppenname", 
+    btnAddGroup: "Gruppe anlegen", 
+    titleAssignNames: "Namen zuordnen", 
+    btnResetGroups: "Alle Gruppen löschen", 
+    titleGroupsList: "Gruppen", 
+    btnRandomGroup: "Zufällige Gruppe anzeigen",
+    titleTeams: "Automatische Gruppenerstellung", 
+    placeholderTeamCount: "Anzahl Gruppen", 
+    placeholderTeamSize: "Gruppengröße", 
+    titleFixedPersons: "Fixierte Personen auswählen", 
+    btnGenerateTeams: "Generieren", 
+    btnResetTeams: "Zurücksetzen", 
+    titleCreatedTeams: "Erstellte Gruppen", 
+    btnRandomTeam: "Zufällige Gruppe anzeigen",
+    btnManageRoles: "🎭 Rollen verwalten", 
+    modalRolesTitle: "Rollen auswählen & bearbeiten", 
+    modalRolesDesc: "Wähle die Rollen, die verteilt werden sollen. Deaktivierte Rollen werden nicht genutzt.", 
+    modalRolesCustomTitle: "Eigene Rolle erstellen", 
+    modalRolesCustomName: "Rollenname", 
+    modalRolesCustomDesc: "Kurze Beschreibung", 
+    btnAddCustomRole: "Hinzufügen",
+    aboutTitle: "Über FairMix", 
+    btnExportImage: "📸 Als Bild speichern",
+    btnPresentMode: "🎦 Präsentation",
+    placeholderFixedSearch: "Namen suchen...",
+    fixedSuffix: "fixiert",
+    btnUndo: "Rückgängig",
+    toastRemoved: "entfernt",
+    toastAbsent: "als abwesend markiert",
+    toastMoved: "verschoben",
+    toastRemovedFromGroup: "aus Gruppe entfernt",
+    toggleInDraw: "🎲 in Ziehung",
+    toggleWasDrawn: "✅ schon dran",
+    msgAllDrawn: "Alle Gruppen waren schon dran!",
+    msgDrawReset: "Ziehung zurückgesetzt!",
+    btnResetGroupDraw: "🔄 Ziehung zurücksetzen",
+    titleBackup: "Backup (Datei)",
+    btnExportData: "⬇️ Backup exportieren",
+    btnImportData: "⬆️ Backup importieren",
+    msgBackupSaved: "Backup exportiert!",
+    msgBackupLoaded: "Backup geladen!",
+    msgBackupInvalid: "⚠️ Ungültige Backup-Datei!",
+    titlePairRules: "Regeln: zusammen / getrennt",
+    btnPairTogether: "🔗 Immer zusammen",
+    btnPairApart: "🚫 Nie zusammen",
+    msgPairPick: "Zwei verschiedene Namen wählen!",
+    msgPairExists: "Regel existiert bereits!",
+    msgRulesUnsolved: "⚠️ Nicht alle Regeln erfüllbar!",
+    promptRename: "Neuer Gruppenname:",
+    groupWord: "Gruppe"
+  },
+  en: {
+    navStart: "Start", 
+    navNames: "Names", 
+    navDraw: "Draw", 
+    navGroups: "Create groups manually", 
+    navTeams: "Create groups randomly",
+    btnManageNames: "Manage names", 
+    btnDrawNames: "Draw names randomly", 
+    btnCreateGroups: "Create groups manually", 
+    btnRandomGroups: "Create groups randomly", 
+    btnAbout: "About FairMix",
+    titleNames: "Manage Names", 
+    placeholderName: "Enter name", 
+    btnAddName: "Add", 
+    titleActiveNames: "Active names", 
+    btnSortNames: "Sort", 
+    btnResetNames: "Reset", 
+    btnDeleteAllNames: "Delete all",
+    titleCSVImport: "Import CSV", 
+    btnChooseFile: "Choose file", 
+    btnImportCSV: "Import", 
+    titleSaveLoad: "Save / Load lists", 
+    placeholderSaveName: "List name", 
+    btnSaveNames: "Save", 
+    btnLoadNames: "Load", 
+    btnDeleteSavedNames: "Delete", 
+    btnBackToStart: "Back to start",
+    titleDraw: "Random name draw", 
+    btnDraw: "Draw", 
+    btnResetDraw: "Reset display",
+    titleGroups: "Manual group creation", 
+    placeholderGroupName: "Group name", 
+    btnAddGroup: "Create group", 
+    titleAssignNames: "Assign names", 
+    btnResetGroups: "Delete all groups", 
+    titleGroupsList: "Groups", 
+    btnRandomGroup: "Show random group",
+    titleTeams: "Automatic team creation", 
+    placeholderTeamCount: "Number of groups", 
+    placeholderTeamSize: "Group size", 
+    titleFixedPersons: "Select fixed persons", 
+    btnGenerateTeams: "Generate", 
+    btnResetTeams: "Reset", 
+    titleCreatedTeams: "Created groups", 
+    btnRandomTeam: "Show random group",
+    btnManageRoles: "🎭 Manage Roles", 
+    modalRolesTitle: "Select & Edit Roles", 
+    modalRolesDesc: "Select the roles available for distribution. Deactivated roles will not be used.", 
+    modalRolesCustomTitle: "Create Custom Role", 
+    modalRolesCustomName: "Role name", 
+    modalRolesCustomDesc: "Short description", 
+    btnAddCustomRole: "Add",
+    aboutTitle: "About FairMix", 
+    btnExportImage: "📸 Save as Image",
+    btnPresentMode: "🎦 Presentation",
+    placeholderFixedSearch: "Search names...",
+    fixedSuffix: "pinned",
+    btnUndo: "Undo",
+    toastRemoved: "removed",
+    toastAbsent: "marked absent",
+    toastMoved: "moved",
+    toastRemovedFromGroup: "removed from group",
+    toggleInDraw: "🎲 in draw",
+    toggleWasDrawn: "✅ already drawn",
+    msgAllDrawn: "All groups have already been drawn!",
+    msgDrawReset: "Draw reset!",
+    btnResetGroupDraw: "🔄 Reset draw",
+    titleBackup: "Backup (file)",
+    btnExportData: "⬇️ Export backup",
+    btnImportData: "⬆️ Import backup",
+    msgBackupSaved: "Backup exported!",
+    msgBackupLoaded: "Backup loaded!",
+    msgBackupInvalid: "⚠️ Invalid backup file!",
+    titlePairRules: "Rules: together / apart",
+    btnPairTogether: "🔗 Always together",
+    btnPairApart: "🚫 Never together",
+    msgPairPick: "Pick two different names!",
+    msgPairExists: "Rule already exists!",
+    msgRulesUnsolved: "⚠️ Not all rules could be satisfied!",
+    promptRename: "New group name:",
+    groupWord: "Group"
+  }
+};
+
+let currentLang = localStorage.getItem("fairmix_lang") || "de";
+
+function setLanguage(lang) {
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    if(i18n[lang][el.dataset.i18n]) el.textContent = i18n[lang][el.dataset.i18n];
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+    if(i18n[lang][el.dataset.i18nPlaceholder]) el.placeholder = i18n[lang][el.dataset.i18nPlaceholder];
+  });
+  try { localStorage.setItem("fairmix_lang", lang); } catch(e) {}
+  currentLang = lang;
+}
+
+/* -------------------------------------------------
+   2️⃣  Daten-Strukturen & Persistenz
+   ------------------------------------------------- */
+
+/* ---- FIX 1: Robustheits-Helfer gegen korrupte Daten & Injection ---- */
+function safeParse(str, fallback) {
+  if (!str) return fallback;
+  try { return JSON.parse(str); }
+  catch (e) { console.warn("Korrupte Daten ignoriert:", e); return fallback; }
+}
+
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+let originalNames = [];
+let presentNames = [];
+let absentNames = [];
+let groups = {};
+let teams = [];
+let teamNames = []; /* NEU: eigene Namen für Auto-Gruppen */
+let fixedPersons = [];
+let pairRules = { together: [], apart: [] }; /* NEU: Paar-Regeln */
+let drawCounts = {}; /* NEU: Ziehungs-Historie für faire Namensziehung */
+let drawnGroups = { manual: [], auto: [] }; /* NEU: bereits gezogene / ausgeschlossene Gruppen */
+let isAnimating = false;
+let displayTimeout;
+
+/* NEU: Fairer Zufalls-Shuffle (Fisher-Yates) statt sort(random) */
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const defaultRoles = [
+  { id: 'r1', name: 'Moderator', icon: '🎤', desc: 'Leitet das Gespräch' },
+  { id: 'r2', name: 'Zeitwächter', icon: '⏱️', desc: 'Achtet auf die Zeit' },
+  { id: 'r3', name: 'Schreiber', icon: '✍️', desc: 'Notiert Ergebnisse' },
+  { id: 'r4', name: 'Materialmanager', icon: '📦', desc: 'Verwaltet Material' },
+  { id: 'r5', name: 'Sprecher', icon: '📢', desc: 'Präsentiert Ergebnisse' },
+  { id: 'r6', name: 'Regelwächter', icon: '⚖️', desc: 'Achtet auf Regeln' }
+];
+let customRoles = [];
+let activeRoleIds = defaultRoles.map(r=>r.id);
+
+function saveState() {
+  const state = { 
+    originalNames, presentNames, absentNames, 
+    groups, teams, teamNames, fixedPersons, customRoles, activeRoleIds, 
+    drawnGroups, pairRules, drawCounts 
+  };
+  /* FIX 1: setItem kann werfen (Speicher voll / Private Mode) */
+  try {
+    localStorage.setItem("fairmix_full_state", JSON.stringify(state));
+  } catch (e) {
+    console.error("Speichern fehlgeschlagen:", e);
+    showBig("⚠️ Speichern fehlgeschlagen!", true);
+  }
+}
+
+function loadState() {
+  /* FIX 1: safeParse + Typprüfung pro Feld */
+  const state = safeParse(localStorage.getItem("fairmix_full_state"), null);
+  if (state && typeof state === "object") {
+    originalNames = Array.isArray(state.originalNames) ? state.originalNames : [];
+    presentNames  = Array.isArray(state.presentNames)  ? state.presentNames  : [];
+    absentNames   = Array.isArray(state.absentNames)   ? state.absentNames   : [];
+    groups        = (state.groups && typeof state.groups === "object" && !Array.isArray(state.groups)) ? state.groups : {};
+    teams         = Array.isArray(state.teams) ? state.teams : [];
+    fixedPersons  = Array.isArray(state.fixedPersons) ? state.fixedPersons : [];
+    customRoles   = Array.isArray(state.customRoles) ? state.customRoles : [];
+    activeRoleIds = Array.isArray(state.activeRoleIds) ? state.activeRoleIds : defaultRoles.map(r=>r.id);
+    drawnGroups   = (state.drawnGroups && Array.isArray(state.drawnGroups.manual) && Array.isArray(state.drawnGroups.auto))
+                      ? state.drawnGroups : { manual: [], auto: [] };
+    teamNames     = Array.isArray(state.teamNames) ? state.teamNames : [];
+    pairRules     = (state.pairRules && Array.isArray(state.pairRules.together) && Array.isArray(state.pairRules.apart))
+                      ? state.pairRules : { together: [], apart: [] };
+    drawCounts    = (state.drawCounts && typeof state.drawCounts === "object" && !Array.isArray(state.drawCounts))
+                      ? state.drawCounts : {};
+  }
+  if(localStorage.getItem("fairmix_theme") === "dark") {
+    document.body.classList.add("dark-mode");
+  }
+}
+
+/* -------------------------------------------------
+   3️⃣  Initialisierung & Theme
+   ------------------------------------------------- */
+document.addEventListener("DOMContentLoaded", () => {
+  loadState();
+  setLanguage(currentLang);
+  
+  document.querySelectorAll(".lang-btn").forEach(btn => {
+    btn.addEventListener("click", () => { 
+      setLanguage(btn.dataset.lang); 
+      renderAll(); /* NEU: auch dynamische Texte (Toggles, Zähler) neu rendern */
+    });
+  });
+  
+  renderAll();
+  
+  // Eingabefelder für Teams gegenseitig blockieren
+  const tCount = document.getElementById("teamCount");
+  const tSize = document.getElementById("teamSize");
+  tCount.addEventListener("input", e => { if(e.target.value) tSize.value = ""; });
+  tSize.addEventListener("input", e => { if(e.target.value) tCount.value = ""; });
+  
+  /* NEU: Escape schließt Präsentationsmodus */
+  document.addEventListener("keydown", e => {
+    if(e.key === "Escape") closePresentation();
+  });
+});
+
+/* NEU: Android-Zurück-Button (Cordova) sinnvoll behandeln */
+document.addEventListener("deviceready", () => {
+  document.addEventListener("backbutton", e => {
+    e.preventDefault();
+    if(document.getElementById("presentOverlay").classList.contains("open")) return closePresentation();
+    if(document.getElementById("roleModal").style.display === "flex") return closeRoleModal();
+    const current = document.querySelector(".page.active");
+    if(current && current.id !== "pageStart") {
+      showPage("pageStart");
+    } else if(navigator.app && navigator.app.exitApp) {
+      navigator.app.exitApp();
+    }
+  }, false);
+}, false);
+
+function toggleTheme() {
+  document.body.classList.toggle("dark-mode");
+  try {
+    localStorage.setItem("fairmix_theme", document.body.classList.contains("dark-mode") ? "dark" : "light");
+  } catch(e) {}
+}
+
+function renderAll() {
+  renderNameList(); 
+  updateAssignList(); 
+  updateGroupSelect(); 
+  updateGroups(); 
+  renderTeams(); 
+  updateFixedChipList(); 
+  updatePairSelects(); /* NEU */
+  renderPairRules();   /* NEU */
+  updateSavedNamesSelect(); 
+  renderRoleManagement();
+}
+
+/* -------------------------------------------------
+   NEU: Paar-Regeln (immer zusammen / nie zusammen)
+   ------------------------------------------------- */
+function updatePairSelects(){
+  ["pairSelectA","pairSelectB"].forEach(id => {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = "";
+    presentNames.forEach(n => {
+      const o = document.createElement("option");
+      o.value = n; o.textContent = n;
+      if(n === cur) o.selected = true;
+      sel.appendChild(o);
+    });
+  });
+}
+
+function pairExists(a, b){
+  return [...pairRules.together, ...pairRules.apart]
+    .some(p => (p[0]===a && p[1]===b) || (p[0]===b && p[1]===a));
+}
+
+function addPairRule(type){
+  const a = document.getElementById("pairSelectA").value;
+  const b = document.getElementById("pairSelectB").value;
+  if(!a || !b || a === b) return showBig(i18n[currentLang].msgPairPick, true);
+  if(pairExists(a, b)) return showBig(i18n[currentLang].msgPairExists, true);
+  pairRules[type].push([a, b]);
+  saveState();
+  renderPairRules();
+}
+
+function removePairRule(type, idx){
+  pairRules[type].splice(idx, 1);
+  saveState();
+  renderPairRules();
+}
+
+function renderPairRules(){
+  const ul = document.getElementById("pairRulesList");
+  ul.innerHTML = "";
+  const total = pairRules.together.length + pairRules.apart.length;
+  ul.style.display = total ? "block" : "none";
+  
+  [["together","🔗"],["apart","🚫"]].forEach(([type, icon]) => {
+    pairRules[type].forEach(([a, b], idx) => {
+      const li = document.createElement("li");
+      const span = document.createElement("span");
+      span.textContent = `${icon} ${a} ${type==='together' ? '+' : '✕'} ${b}`;
+      const del = document.createElement("button");
+      del.className = "delete-item-btn";
+      del.textContent = "❌";
+      del.onclick = () => removePairRule(type, idx);
+      li.appendChild(span);
+      li.appendChild(del);
+      ul.appendChild(li);
+    });
+  });
+}
+
+/* Regeln bereinigen, wenn ein Name entfernt wird */
+function purgePairRules(name){
+  pairRules.together = pairRules.together.filter(p => p[0] !== name && p[1] !== name);
+  pairRules.apart    = pairRules.apart.filter(p => p[0] !== name && p[1] !== name);
+}
+
+/* -------------------------------------------------
+   NEU: Undo-System
+   ------------------------------------------------- */
+let undoSnapshot = null;
+let undoTimer = null;
+
+function takeSnapshot() {
+  return JSON.parse(JSON.stringify({
+    originalNames, presentNames, absentNames, groups, teams, fixedPersons
+  }));
+}
+
+function showUndoToast(msg) {
+  clearTimeout(undoTimer);
+  document.getElementById("undoText").textContent = msg;
+  document.getElementById("undoToast").classList.add("show");
+  undoTimer = setTimeout(hideUndoToast, 5000);
+}
+
+function hideUndoToast() {
+  document.getElementById("undoToast").classList.remove("show");
+  undoSnapshot = null;
+}
+
+function performUndo() {
+  if(!undoSnapshot) return hideUndoToast();
+  originalNames = undoSnapshot.originalNames;
+  presentNames  = undoSnapshot.presentNames;
+  absentNames   = undoSnapshot.absentNames;
+  groups        = undoSnapshot.groups;
+  teams         = undoSnapshot.teams;
+  fixedPersons  = undoSnapshot.fixedPersons;
+  saveState(); 
+  renderAll(); 
+  hideUndoToast();
+}
+
+/* -------------------------------------------------
+   NEU: Präsentationsmodus
+   ------------------------------------------------- */
+function openPresentation(mode) {
+  const grid = document.getElementById("presentGrid");
+  grid.innerHTML = "";
+  
+  let cards = [];
+  if(mode === 'manual') {
+    cards = Object.keys(groups).map(g => ({ title: g, members: groups[g] }));
+  } else {
+    cards = teams.map((t, i) => ({ title: teamLabel(i), members: t }));
+  }
+  cards = cards.filter(c => c.members.length > 0);
+  
+  if(cards.length === 0) return showBig("Keine Gruppen!", true);
+  
+  cards.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "present-card";
+    card.innerHTML = `<h3>${escapeHTML(c.title)}</h3>`;
+    
+    const ul = document.createElement("ul");
+    c.members.forEach(m => {
+      const li = document.createElement("li");
+      const r = m.roleId ? getRoleById(m.roleId) : null;
+      li.innerHTML = `<span>${escapeHTML(m.name)}</span>` +
+        (r ? `<span class="role-badge">${escapeHTML(r.icon)} ${escapeHTML(r.name)}</span>` : "");
+      ul.appendChild(li);
+    });
+    card.appendChild(ul);
+    grid.appendChild(card);
+  });
+  
+  document.getElementById("presentOverlay").classList.add("open");
+}
+
+function closePresentation() {
+  document.getElementById("presentOverlay").classList.remove("open");
+}
+
+/* -------------------------------------------------
+   NEU: Drag & Drop zwischen Gruppen (Pointer Events)
+   ------------------------------------------------- */
+let dragData = null;
+let dragGhost = null;
+let dragOverBox = null;
+
+function attachMemberDrag(handle, info) {
+  handle.addEventListener("pointerdown", e => startMemberDrag(e, handle, info));
+}
+
+function startMemberDrag(e, handle, info) {
+  if(isAnimating || dragData) return;
+  e.preventDefault();
+  
+  const member = info.type === 'manual' ? (groups[info.key] || [])[info.index] : (teams[info.key] || [])[info.index];
+  if(!member) return;
+  
+  dragData = info;
+  dragGhost = document.createElement("div");
+  dragGhost.className = "drag-ghost";
+  dragGhost.textContent = member.name;
+  document.body.appendChild(dragGhost);
+  moveDragGhost(e);
+  
+  handle.setPointerCapture(e.pointerId);
+  handle.addEventListener("pointermove", onMemberDragMove);
+  handle.addEventListener("pointerup", onMemberDragEnd);
+  handle.addEventListener("pointercancel", cancelMemberDrag);
+}
+
+function moveDragGhost(e) {
+  if(!dragGhost) return;
+  dragGhost.style.left = e.clientX + "px";
+  dragGhost.style.top = e.clientY + "px";
+}
+
+function boxUnderPointer(e) {
+  if(!dragData) return null;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  if(!el) return null;
+  return el.closest(dragData.type === 'manual' ? '.groupBox' : '.teamBox');
+}
+
+function onMemberDragMove(e) {
+  moveDragGhost(e);
+  const box = boxUnderPointer(e);
+  if(dragOverBox && dragOverBox !== box) dragOverBox.classList.remove("drop-target");
+  dragOverBox = box;
+  if(box) box.classList.add("drop-target");
+}
+
+function onMemberDragEnd(e) {
+  const box = boxUnderPointer(e);
+  const info = dragData;
+  cleanupMemberDrag(e);
+  if(!box || !info) return;
+  
+  if(info.type === 'manual') {
+    const target = box.dataset.group;
+    if(target !== undefined && target !== info.key && groups[target] && groups[info.key]) {
+      undoSnapshot = takeSnapshot();
+      const member = groups[info.key].splice(info.index, 1)[0];
+      if(!member) { undoSnapshot = null; return; }
+      groups[target].push(member);
+      saveState();
+      renderAll();
+      showUndoToast(`"${member.name}" ${i18n[currentLang].toastMoved}`);
+    }
+  } else {
+    const target = parseInt(box.dataset.team, 10);
+    if(Number.isInteger(target) && target !== info.key && teams[target] && teams[info.key]) {
+      undoSnapshot = takeSnapshot();
+      const member = teams[info.key].splice(info.index, 1)[0];
+      if(!member) { undoSnapshot = null; return; }
+      teams[target].push(member);
+      saveState();
+      renderAll();
+      showUndoToast(`"${member.name}" ${i18n[currentLang].toastMoved}`);
+    }
+  }
+}
+
+function cancelMemberDrag(e) {
+  cleanupMemberDrag(e);
+}
+
+function cleanupMemberDrag(e) {
+  if(dragGhost) { dragGhost.remove(); dragGhost = null; }
+  if(dragOverBox) { dragOverBox.classList.remove("drop-target"); dragOverBox = null; }
+  const h = e.currentTarget || e.target;
+  if(h && h.removeEventListener) {
+    h.removeEventListener("pointermove", onMemberDragMove);
+    h.removeEventListener("pointerup", onMemberDragEnd);
+    h.removeEventListener("pointercancel", cancelMemberDrag);
+  }
+  dragData = null;
+}
+
+/* NEU (Punkt 8): Person aus manueller Gruppe zurück in die Namensliste */
+function removeFromManualGroup(g, idx) {
+  const m = groups[g] && groups[g][idx];
+  if(!m) return;
+  
+  undoSnapshot = takeSnapshot();
+  groups[g].splice(idx, 1);
+  
+  if(originalNames.includes(m.name) && !absentNames.includes(m.name) && !presentNames.includes(m.name)) {
+    presentNames.push(m.name);
+  }
+  saveState();
+  renderAll();
+  showUndoToast(`"${m.name}" ${i18n[currentLang].toastRemovedFromGroup}`);
+}
+
+/* -------------------------------------------------
+   4️⃣  Bild Export (html2canvas)
+   ------------------------------------------------- */
+function exportAsImage(containerId) {
+  const container = document.getElementById(containerId);
+  if(!container || container.innerHTML.trim() === "") {
+    return showBig("Keine Gruppen vorhanden!", true);
+  }
+  
+  /* Guard: html2canvas kommt vom CDN und fehlt ggf. offline */
+  if (typeof html2canvas === "undefined") {
+    return showBig("⚠️ Export offline nicht verfügbar!", true);
+  }
+  
+  const isDark = document.body.classList.contains("dark-mode");
+  
+  html2canvas(container, { 
+    backgroundColor: isDark ? "#121220" : "#bcdcff", 
+    scale: 2 
+  }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = `FairMix_Gruppen_${new Date().toISOString().split('T')[0]}.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+  }).catch(e => {
+    console.error("Export fehlgeschlagen:", e);
+    showBig("⚠️ Export fehlgeschlagen!", true);
+  });
+}
+
+/* -------------------------------------------------
+   5️⃣  Rollen Verwaltung
+   ------------------------------------------------- */
+function getAllRoles() { return [...defaultRoles, ...customRoles]; }
+function getActiveRoles() { return getAllRoles().filter(r => activeRoleIds.includes(r.id)); }
+function getRoleById(id) { return getAllRoles().find(r => r.id === id); }
+
+function openRoleModal() { 
+  document.getElementById('roleModal').style.display = 'flex'; 
+  renderRoleManagement(); 
+}
+
+function closeRoleModal() { 
+  document.getElementById('roleModal').style.display = 'none'; 
+  updateGroups(); 
+  renderTeams(); 
+}
+
+function renderRoleManagement() {
+  const list = document.getElementById('roleManagementList'); 
+  list.innerHTML = '';
+  
+  getAllRoles().forEach(r => {
+    const div = document.createElement('div'); 
+    div.className = 'role-row';
+    
+    const cb = document.createElement('input'); 
+    cb.type = 'checkbox'; 
+    cb.checked = activeRoleIds.includes(r.id);
+    cb.onchange = () => {
+      if (cb.checked && !activeRoleIds.includes(r.id)) {
+        activeRoleIds.push(r.id);
+      } else if (!cb.checked) {
+        activeRoleIds = activeRoleIds.filter(id => id !== r.id);
+      }
+      saveState();
+    };
+    
+    const span = document.createElement('span'); 
+    /* FIX 2: Nutzereingaben escapen */
+    span.innerHTML = `<strong>${escapeHTML(r.icon)} ${escapeHTML(r.name)}</strong><br><small>${escapeHTML(r.desc)}</small>`;
+    
+    div.appendChild(cb); 
+    div.appendChild(span);
+    
+    if(r.id.startsWith('c')) {
+      const del = document.createElement('button'); 
+      del.className = "btn red"; 
+      del.textContent = "🗑️";
+      del.style.padding = "4px 8px"; 
+      del.style.minHeight = "auto";
+      del.onclick = () => {
+        customRoles = customRoles.filter(cr => cr.id !== r.id);
+        activeRoleIds = activeRoleIds.filter(id => id !== r.id);
+        saveState(); 
+        renderRoleManagement();
+      };
+      div.appendChild(del);
+    }
+    list.appendChild(div);
+  });
+}
+
+function addCustomRole() {
+  const icon = document.getElementById('newRoleIcon').value.trim();
+  const name = document.getElementById('newRoleName').value.trim();
+  const desc = document.getElementById('newRoleDesc').value.trim();
+  
+  if(!name || !icon) return alert("Icon und Name sind erforderlich!");
+  
+  const id = 'c' + Date.now();
+  customRoles.push({ id, name, icon, desc }); 
+  activeRoleIds.push(id); 
+  saveState();
+  
+  document.getElementById('newRoleIcon').value = ''; 
+  document.getElementById('newRoleName').value = ''; 
+  document.getElementById('newRoleDesc').value = '';
+  renderRoleManagement();
+}
+
+/* -------------------------------------------------
+   6️⃣  Namens-Management & UI Routing
+   ------------------------------------------------- */
+function showPage(id){
+  if(isAnimating) return;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  
+  const isMain = (id === "pageStart" || id === "pageAbout");
+  document.getElementById("mainNav").style.display = isMain ? "none" : "block";
+  
+  document.querySelectorAll('.nav .btn').forEach(b => b.classList.remove('active-nav'));
+  if(document.getElementById("nav-" + id)) {
+    document.getElementById("nav-" + id).classList.add('active-nav');
+  }
+  
+  const disp = getDisplay(); 
+  if(disp) disp.style.display = "none";
+  renderAll();
+}
+
+function getDisplay(){
+  if (document.getElementById("pageDraw").classList.contains("active")) return document.getElementById("bigDisplayDraw");
+  if (document.getElementById("pageGroups").classList.contains("active")) return document.getElementById("bigDisplayGroups");
+  if (document.getElementById("pageTeams").classList.contains("active")) return document.getElementById("bigDisplayTeams");
+  if (document.getElementById("pageNames").classList.contains("active")) return document.getElementById("bigDisplayNames");
+  return null;
+}
+
+function showBig(t, autoHide = false){
+  const disp = getDisplay(); 
+  if(!disp) return;
+  disp.textContent = t; 
+  disp.style.display = "block";
+  clearTimeout(displayTimeout); 
+  if(autoHide) {
+    displayTimeout = setTimeout(() => { disp.style.display = "none"; }, 4000);
+  }
+}
+
+/* FIX 4: Person überall dort entfernen, wo sie noch angezeigt würde */
+function removeFromGroupsAndTeams(name){
+  Object.keys(groups).forEach(g => {
+    groups[g] = groups[g].filter(m => m.name !== name);
+  });
+  teams = teams.map(t => t.filter(m => m.name !== name));
+}
+
+function addName(){ 
+  const n = document.getElementById("nameInput").value.trim(); 
+  if(!n) return;
+  
+  /* FIX 5: Duplikate abfangen */
+  if(originalNames.includes(n)) {
+    return showBig("Name existiert bereits!", true);
+  }
+  
+  originalNames.push(n); 
+  presentNames.push(n); 
+  document.getElementById("nameInput").value = ""; 
+  saveState(); 
+  renderAll(); 
+}
+
+function deleteSingleName(idx){
+  const n = presentNames[idx]; 
+  undoSnapshot = takeSnapshot(); /* NEU: Undo */
+  
+  presentNames.splice(idx, 1);
+  const origIdx = originalNames.indexOf(n); 
+  if(origIdx !== -1) { originalNames.splice(origIdx, 1); }
+  absentNames = absentNames.filter(x => x !== n); 
+  fixedPersons = fixedPersons.filter(x => x !== n);
+  purgePairRules(n); /* NEU */
+  delete drawCounts[n]; /* NEU */
+  removeFromGroupsAndTeams(n); /* FIX 4 */
+  saveState(); 
+  renderAll();
+  showUndoToast(`"${n}" ${i18n[currentLang].toastRemoved}`); /* NEU: Undo */
+}
+
+function markAbsent(idx){ 
+  const n = presentNames[idx]; 
+  undoSnapshot = takeSnapshot(); /* NEU: Undo */
+  
+  presentNames.splice(idx, 1); 
+  absentNames.push(n); 
+  removeFromGroupsAndTeams(n); /* FIX 4 */
+  saveState(); 
+  renderAll(); 
+  showUndoToast(`"${n}" ${i18n[currentLang].toastAbsent}`); /* NEU: Undo */
+}
+
+function markPresent(idx){ 
+  const n = absentNames[idx]; 
+  absentNames.splice(idx, 1); 
+  presentNames.push(n); 
+  saveState(); 
+  renderAll(); 
+}
+
+function sortNames(){ 
+  presentNames.sort((a,b)=>a.localeCompare(b,'de')); 
+  originalNames.sort((a,b)=>a.localeCompare(b,'de')); 
+  saveState(); 
+  renderAll(); 
+}
+
+function resetNames(){ 
+  presentNames = [...originalNames]; 
+  absentNames = []; 
+  saveState(); 
+  renderAll(); 
+}
+
+function deleteAllNames(){ 
+  if(!confirm("Wirklich alles löschen? Das löscht auch alle Gruppen.")) return; 
+  originalNames = []; 
+  presentNames = []; 
+  absentNames = []; 
+  fixedPersons = []; 
+  groups = {}; 
+  teams = []; 
+  teamNames = []; /* NEU */
+  pairRules = { together: [], apart: [] }; /* NEU */
+  drawCounts = {}; /* NEU */
+  drawnGroups = { manual: [], auto: [] }; /* NEU */
+  saveState(); 
+  renderAll(); 
+  showBig("Gelöscht!", true); 
+}
+
+function importCSV(){
+  const file = document.getElementById("csvFile").files[0]; 
+  if(!file) return;
+  
+  const r = new FileReader();
+  r.onload = e => {
+    const raw = e.target.result.replace(/^\uFEFF/,"").replace(/\r/g,"").split(/[\n,;]+/).map(l => l.trim()).filter(l => l);
+    const lines = [...new Set(raw)]; /* FIX 5: Duplikate beim Import entfernen */
+    
+    originalNames = [...lines]; 
+    presentNames = [...lines]; 
+    absentNames = []; 
+    fixedPersons = []; 
+    groups = {}; 
+    teams = [];
+    teamNames = []; /* NEU */
+    pairRules = { together: [], apart: [] }; /* NEU */
+    drawCounts = {}; /* NEU */
+    drawnGroups = { manual: [], auto: [] }; /* NEU */
+    saveState(); 
+    renderAll(); 
+    document.getElementById("csvFile").value = ""; 
+    showBig(`Importiert! (${lines.length} Namen)`, true);
+  }; 
+  r.readAsText(file,"UTF-8");
+}
+
+/* -------------------------------------------------
+   7️⃣  Listen Speichern/Laden (mit Zeitstempel)
+   ------------------------------------------------- */
+function updateSavedNamesSelect(){
+  const saved = safeParse(localStorage.getItem("fairmix_saved_lists"), {}); /* FIX 1 */
+  const sel = document.getElementById("savedNamesSelect"); 
+  const currentSelection = sel.value; // Dropdown Bugfix merken
+  sel.innerHTML = "";
+  
+  Object.keys(saved).forEach(k => {
+    const o = document.createElement("option"); 
+    o.value = k;
+    o.textContent = `${k} (${(saved[k] && saved[k].date) || '...'})`; 
+    if(k === currentSelection) o.selected = true; // Dropdown Bugfix anwenden
+    sel.appendChild(o);
+  });
+}
+
+function saveNames(){
+  const name = document.getElementById("saveNameInput").value.trim(); 
+  if(!name) return showBig("Namen eingeben", true);
+  
+  const saved = safeParse(localStorage.getItem("fairmix_saved_lists"), {}); /* FIX 1 */
+  const d = new Date(); 
+  const dateStr = d.toLocaleDateString(currentLang==='de'?'de-DE':'en-US') + " " + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  
+  saved[name] = { 
+    date: dateStr, 
+    original: originalNames, 
+    present: presentNames, 
+    absent: absentNames 
+  };
+  
+  try {
+    localStorage.setItem("fairmix_saved_lists", JSON.stringify(saved));
+  } catch(e) {
+    console.error("Speichern fehlgeschlagen:", e);
+    return showBig("⚠️ Speichern fehlgeschlagen!", true);
+  }
+  
+  document.getElementById("saveNameInput").value = ""; 
+  updateSavedNamesSelect(); 
+  showBig("Gespeichert!", true);
+}
+
+function loadNames(){
+  const name = document.getElementById("savedNamesSelect").value; 
+  if(!name) return;
+  
+  /* FIX 3: Eintrag validieren, bevor er verwendet wird */
+  const entry = safeParse(localStorage.getItem("fairmix_saved_lists"), {})[name];
+  if(!entry || !Array.isArray(entry.original)) {
+    return showBig("⚠️ Liste beschädigt oder nicht gefunden!", true);
+  }
+  
+  originalNames = [...entry.original]; 
+  presentNames  = Array.isArray(entry.present) ? [...entry.present] : [...entry.original]; 
+  absentNames   = Array.isArray(entry.absent)  ? [...entry.absent]  : [];
+  saveState(); 
+  renderAll(); 
+  showBig("Geladen!", true);
+}
+
+function deleteSavedNames(){
+  const name = document.getElementById("savedNamesSelect").value; 
+  if(!name) return;
+  
+  const saved = safeParse(localStorage.getItem("fairmix_saved_lists"), {}); /* FIX 1 */
+  delete saved[name];
+  try {
+    localStorage.setItem("fairmix_saved_lists", JSON.stringify(saved)); 
+  } catch(e) {}
+  updateSavedNamesSelect(); 
+  showBig("Gelöscht!", true);
+}
+
+/* -------------------------------------------------
+   NEU: Komplettes Backup als Datei exportieren / importieren
+   ------------------------------------------------- */
+function exportData(){
+  const data = {
+    app: "FairMix",
+    version: 2,
+    exported: new Date().toISOString(),
+    state: safeParse(localStorage.getItem("fairmix_full_state"), {}),
+    savedLists: safeParse(localStorage.getItem("fairmix_saved_lists"), {})
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const link = document.createElement('a');
+  link.download = `FairMix_Backup_${new Date().toISOString().split('T')[0]}.json`;
+  link.href = URL.createObjectURL(blob);
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+  showBig(i18n[currentLang].msgBackupSaved, true);
+}
+
+function importData(){
+  const file = document.getElementById("jsonFile").files[0];
+  if(!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    const data = safeParse(e.target.result, null);
+    document.getElementById("jsonFile").value = "";
+    if(!data || typeof data !== "object" || !data.state || typeof data.state !== "object") {
+      return showBig(i18n[currentLang].msgBackupInvalid, true);
+    }
+    try {
+      localStorage.setItem("fairmix_full_state", JSON.stringify(data.state));
+      if(data.savedLists && typeof data.savedLists === "object") {
+        localStorage.setItem("fairmix_saved_lists", JSON.stringify(data.savedLists));
+      }
+    } catch(err) {
+      return showBig("⚠️ Import fehlgeschlagen!", true);
+    }
+    loadState();
+    renderAll();
+    showBig(i18n[currentLang].msgBackupLoaded, true);
+  };
+  r.readAsText(file, "UTF-8");
+}
+
+/* -------------------------------------------------
+   8️⃣  Ziehen
+   ------------------------------------------------- */
+function pickRandomNameWithAnimation(){
+  if(isAnimating) return; 
+  if(presentNames.length === 0) return showBig("Keine Namen mehr!", true);
+  
+  isAnimating = true; 
+  const disp = getDisplay(); 
+  disp.style.display = "block"; 
+  disp.classList.add("animating");
+  clearTimeout(displayTimeout);
+  
+  let counter = 0; 
+  const interval = setInterval(() => {
+    disp.textContent = originalNames[Math.floor(Math.random() * originalNames.length)] || "..."; 
+    counter += 60;
+    
+    if(counter >= 1000) {
+      clearInterval(interval); 
+      disp.classList.remove("animating");
+      
+      /* NEU: Faire Ziehung – wer über alle Sitzungen hinweg am seltensten
+         dran war, wird bevorzugt (Ziehungshistorie in drawCounts) */
+      const minCount = Math.min(...presentNames.map(n => drawCounts[n] || 0));
+      const pool = presentNames.filter(n => (drawCounts[n] || 0) === minCount);
+      const chosen = pool[Math.floor(Math.random() * pool.length)];
+      
+      drawCounts[chosen] = (drawCounts[chosen] || 0) + 1;
+      disp.textContent = chosen; 
+      presentNames.splice(presentNames.indexOf(chosen), 1);
+      
+      saveState(); 
+      renderAll(); 
+      isAnimating = false;
+    }
+  }, 60);
+}
+
+function resetDraw(){ 
+  if(isAnimating) return; 
+  presentNames = originalNames.filter(n => !absentNames.includes(n)); 
+  saveState(); 
+  renderAll(); 
+  const disp = getDisplay(); 
+  if(disp) disp.style.display = "none"; 
+}
+
+/* -------------------------------------------------
+   9️⃣  Gruppen & Teams
+   ------------------------------------------------- */
+function addGroup(){
+  const g = document.getElementById("groupNameInput").value.trim(); 
+  if(!g) return;
+  
+  if (!groups[g]) groups[g] = [];
+  document.getElementById("groupNameInput").value = ""; 
+  saveState(); 
+  updateGroupSelect(); 
+  updateGroups();
+}
+
+function assignToSelectedGroup(name){
+  const g = document.getElementById("groupSelect").value; 
+  if(!g || !groups[g]) return;
+  
+  groups[g].push({ name: name, roleId: null }); 
+  presentNames = presentNames.filter(n => n !== name);
+  saveState(); 
+  renderAll();
+}
+
+function changeManualRole(groupName, index, roleId) {
+  if(!groups[groupName] || !groups[groupName][index]) return;
+  groups[groupName][index].roleId = (roleId === "none" ? null : roleId); 
+  saveState();
+}
+
+function resetGroups(){
+  groups = {}; 
+  teams = []; 
+  teamNames = []; /* NEU */
+  fixedPersons = []; 
+  drawnGroups = { manual: [], auto: [] }; /* NEU */
+  presentNames = originalNames.filter(n => !absentNames.includes(n));
+  saveState(); 
+  renderAll();
+}
+
+function generateTeams(){
+  if(isAnimating) return;
+  
+  /* FIX 6: Eingaben validieren */
+  const countInput = document.getElementById("teamCount").value.trim();
+  const sizeInput  = document.getElementById("teamSize").value.trim();
+  const count = parseInt(countInput, 10);
+  const size  = parseInt(sizeInput, 10);
+  
+  if ((countInput && (!Number.isInteger(count) || count < 1)) ||
+      (sizeInput  && (!Number.isInteger(size)  || size  < 1))) {
+    return showBig("Bitte eine Zahl größer 0 eingeben!", true);
+  }
+  
+  const all = [...presentNames]; 
+  if(all.length === 0) return showBig("Keine Namen!", true);
+  
+  let groupsCount = (countInput ? count : 0) || (sizeInput ? Math.ceil(all.length / size) : 1);
+  groupsCount = Math.min(groupsCount, all.length); /* FIX 6: keine leeren Gruppen */
+  
+  /* NEU: "Immer zusammen"-Regeln zu unzertrennlichen Einheiten (Clustern) verbinden */
+  const units = buildTogetherUnits(all);
+  const fixedUnits = units.filter(u => u.some(n => fixedPersons.includes(n)));
+  const freeUnits = shuffle(units.filter(u => !u.some(n => fixedPersons.includes(n))));
+  
+  const nameTeams = Array.from({length: groupsCount}, () => []);
+  
+  /* Fixierte Einheiten gleichmäßig verteilen */
+  fixedUnits.forEach((u, i) => nameTeams[i % groupsCount].push(...u));
+  
+  /* Freie Einheiten (größte zuerst) in die Gruppe mit der meisten Restkapazität */
+  const base = Math.floor(all.length / groupsCount);
+  const rest = all.length % groupsCount;
+  const target = i => base + (i < rest ? 1 : 0);
+  
+  freeUnits.sort((a, b) => b.length - a.length);
+  freeUnits.forEach(u => {
+    let best = 0;
+    for(let i = 1; i < groupsCount; i++) {
+      if((target(i) - nameTeams[i].length) > (target(best) - nameTeams[best].length)) best = i;
+    }
+    nameTeams[best].push(...u);
+  });
+  
+  /* NEU: "Nie zusammen"-Verstöße durch Tauschen reparieren */
+  const inCluster = n => units.some(u => u.length > 1 && u.includes(n));
+  const locked = n => fixedPersons.includes(n) || inCluster(n);
+  const conflicts = (name, team) => pairRules.apart.some(([a, b]) =>
+    (name === a && team.includes(b)) || (name === b && team.includes(a)));
+  
+  let unresolved = false;
+  for(let iter = 0; iter < 400; iter++) {
+    let vi = -1, vname = null;
+    outer:
+    for(let ti = 0; ti < groupsCount; ti++) {
+      for(const [a, b] of pairRules.apart) {
+        if(nameTeams[ti].includes(a) && nameTeams[ti].includes(b)) {
+          vi = ti;
+          vname = !locked(b) ? b : (!locked(a) ? a : null);
+          break outer;
+        }
+      }
+    }
+    if(vi === -1) break; /* keine Verstöße mehr */
+    if(vname === null) { unresolved = true; break; }
+    
+    let swapped = false;
+    for(let tj = 0; tj < groupsCount && !swapped; tj++) {
+      if(tj === vi) continue;
+      for(const cand of nameTeams[tj]) {
+        if(locked(cand)) continue;
+        const teamJ = nameTeams[tj].filter(n => n !== cand);
+        const teamI = nameTeams[vi].filter(n => n !== vname);
+        if(!conflicts(vname, teamJ) && !conflicts(cand, teamI)) {
+          nameTeams[tj] = [...teamJ, vname];
+          nameTeams[vi] = [...teamI, cand];
+          swapped = true;
+          break;
+        }
+      }
+    }
+    if(!swapped) { unresolved = true; break; }
+  }
+  
+  teams = nameTeams.map(t => t.map(n => ({ name: n, roleId: null })));
+  teamNames = []; /* NEU: eigene Namen bei Neu-Generierung zurücksetzen */
+  drawnGroups.auto = []; /* NEU: neue Teams = frische Ziehung */
+  
+  teams.forEach(team => {
+      let shuffledRoles = shuffle(activeRoleIds); /* NEU: fairer Shuffle */
+      team.forEach((member, idx) => { 
+        if(idx < shuffledRoles.length) member.roleId = shuffledRoles[idx]; 
+      });
+  });
+  
+  saveState(); 
+  renderTeams();
+  if(unresolved) showBig(i18n[currentLang].msgRulesUnsolved, true);
+}
+
+/* NEU: Union-Find für "immer zusammen"-Cluster */
+function buildTogetherUnits(names) {
+  const parent = {};
+  names.forEach(n => parent[n] = n);
+  const find = n => { 
+    while(parent[n] !== n) { parent[n] = parent[parent[n]]; n = parent[n]; } 
+    return n; 
+  };
+  pairRules.together.forEach(([a, b]) => {
+    if(parent[a] !== undefined && parent[b] !== undefined) {
+      const ra = find(a), rb = find(b);
+      if(ra !== rb) parent[ra] = rb;
+    }
+  });
+  const map = {};
+  names.forEach(n => { const r = find(n); (map[r] = map[r] || []).push(n); });
+  return Object.values(map);
+}
+
+/* NEU: Anzeigename einer Auto-Gruppe (eigener Name oder Standard) */
+function teamLabel(i) {
+  return teamNames[i] || (i18n[currentLang].groupWord + " " + (i + 1));
+}
+
+function renameTeam(i) {
+  const val = prompt(i18n[currentLang].promptRename, teamLabel(i));
+  if(val === null) return;
+  teamNames[i] = val.trim();
+  saveState();
+  renderTeams();
+}
+
+function drawRandomGroupWithAnimation(mode){
+  if(isAnimating) return;
+  
+  /* NEU: Nur Gruppen ziehen, die nicht als "schon dran" markiert sind */
+  let pool, totalCount;
+  if(mode === 'manual') {
+    const keys = Object.keys(groups);
+    totalCount = keys.length;
+    pool = keys.filter(g => !drawnGroups.manual.includes(g))
+               .map(g => ({ label: i18n[currentLang].groupWord + ": " + g, key: g }));
+  } else {
+    totalCount = teams.length;
+    pool = teams.map((_, i) => ({ label: teamLabel(i), key: i }))
+                .filter(p => !drawnGroups.auto.includes(p.key));
+  }
+  
+  if (totalCount === 0) return showBig("Keine Gruppen!", true);
+  if (pool.length === 0) return showBig(i18n[currentLang].msgAllDrawn, true);
+  
+  isAnimating = true; 
+  const disp = getDisplay(); 
+  disp.style.display = "block"; 
+  disp.classList.add("animating"); 
+  clearTimeout(displayTimeout);
+  
+  let counter = 0; 
+  const interval = setInterval(() => {
+    disp.textContent = pool[Math.floor(Math.random() * pool.length)].label; 
+    counter += 70;
+    
+    if(counter >= 1000) { 
+      clearInterval(interval); 
+      disp.classList.remove("animating"); 
+      
+      const picked = pool[Math.floor(Math.random() * pool.length)];
+      disp.textContent = picked.label; 
+      
+      /* NEU: Gezogene Gruppe automatisch als "schon dran" markieren */
+      if(mode === 'manual') drawnGroups.manual.push(picked.key);
+      else drawnGroups.auto.push(picked.key);
+      saveState();
+      if(mode === 'manual') updateGroups(); else renderTeams();
+      
+      isAnimating = false; 
+    }
+  }, 70);
+}
+
+/* -------------------------------------------------
+   NEU: Ziehungs-Status verwalten
+   ------------------------------------------------- */
+function toggleGroupDrawn(mode, key) {
+  const list = mode === 'manual' ? drawnGroups.manual : drawnGroups.auto;
+  const idx = list.indexOf(key);
+  if(idx === -1) list.push(key); 
+  else list.splice(idx, 1);
+  saveState();
+  if(mode === 'manual') updateGroups(); else renderTeams();
+}
+
+function resetGroupDraw(mode) {
+  if(mode === 'manual') drawnGroups.manual = []; 
+  else drawnGroups.auto = [];
+  saveState();
+  if(mode === 'manual') updateGroups(); else renderTeams();
+  showBig(i18n[currentLang].msgDrawReset, true);
+}
+
+/* -------------------------------------------------
+   🔟 Render UI Updates
+   ------------------------------------------------- */
+function renderNameList(){
+  const list = document.getElementById("nameList"); 
+  list.innerHTML = "";
+  
+  presentNames.forEach((n,i)=>{
+    const li = document.createElement("li"); 
+    li.innerHTML = `<span>${i+1}. ${escapeHTML(n)}</span>`; /* FIX 2 */
+    
+    const div = document.createElement("div");
+    
+    const btnA = document.createElement("button"); 
+    btnA.className = "absent-btn present"; 
+    btnA.innerHTML = "✅"; 
+    btnA.onclick = () => markAbsent(i); 
+    div.appendChild(btnA);
+    
+    const btnD = document.createElement("button"); 
+    btnD.className = "delete-item-btn"; 
+    btnD.style.marginLeft="8px"; 
+    btnD.innerHTML = "❌"; 
+    btnD.onclick = () => deleteSingleName(i); 
+    div.appendChild(btnD);
+    
+    li.appendChild(div); 
+    list.appendChild(li);
+  });
+  
+  if (absentNames.length){
+    list.insertAdjacentHTML('beforeend', `<h4 style="margin-top:20px;">Abwesend (Klicken zum Anwählen)</h4>`);
+    
+    absentNames.forEach((n,i)=>{
+      const li = document.createElement("li"); 
+      li.className = "absent-name"; 
+      li.innerHTML = `<span>${i+1}. ${escapeHTML(n)}</span>`; /* FIX 2 */
+      
+      const btn = document.createElement("button"); 
+      btn.className = "absent-btn absent"; 
+      btn.innerHTML = "❌"; 
+      btn.onclick = () => markPresent(i);
+      
+      li.appendChild(btn); 
+      list.appendChild(li);
+    });
+  }
+}
+
+function updateAssignList(){
+  const ul = document.getElementById("assignList"); 
+  ul.innerHTML = "";
+  presentNames.forEach(n=>{ 
+    const li = document.createElement("li"); 
+    li.textContent = n; 
+    li.style.cursor = "pointer"; 
+    li.onclick = () => assignToSelectedGroup(n); 
+    ul.appendChild(li); 
+  });
+}
+
+function updateGroupSelect(){
+  const sel = document.getElementById("groupSelect"); 
+  const currentSelection = sel.value; // Dropdown Bugfix merken
+  sel.innerHTML = "";
+  
+  Object.keys(groups).forEach(g=>{ 
+    const o = document.createElement("option"); 
+    o.value = g; 
+    o.textContent = g; 
+    if(g === currentSelection) o.selected = true; // Dropdown Bugfix anwenden
+    sel.appendChild(o); 
+  });
+}
+
+/* NEU: Chip-Auswahl mit Suche statt Checkbox-Liste */
+function updateFixedChipList(){
+  const con = document.getElementById("fixedChipContainer"); 
+  const q = (document.getElementById("fixedSearch").value || "").toLowerCase();
+  con.innerHTML = "";
+  
+  if(!presentNames.length) {
+    con.textContent = "Keine präsenten Namen.";
+  } else {
+    presentNames
+      .filter(n => n.toLowerCase().includes(q))
+      .forEach(n => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip" + (fixedPersons.includes(n) ? " selected" : "");
+        chip.textContent = n;
+        chip.onclick = () => {
+          if(fixedPersons.includes(n)) fixedPersons = fixedPersons.filter(p => p !== n);
+          else fixedPersons.push(n);
+          saveState(); 
+          updateFixedChipList();
+        };
+        con.appendChild(chip);
+      });
+  }
+  
+  const fixedPresentCount = fixedPersons.filter(p => presentNames.includes(p)).length;
+  document.getElementById("fixedCount").textContent = 
+    fixedPresentCount ? `📌 ${fixedPresentCount} ${i18n[currentLang].fixedSuffix}` : "";
+}
+
+function updateGroups(){
+  const con = document.getElementById("groupsContainer"); 
+  con.innerHTML = ""; 
+  const active = getActiveRoles();
+  
+  Object.keys(groups).forEach(g=>{
+    const box = document.createElement("div"); 
+    box.className = "groupBox"; 
+    box.dataset.group = g; /* NEU: Drop-Ziel für Drag & Drop */
+    if(drawnGroups.manual.includes(g)) box.classList.add("drawn-group"); /* NEU */
+    
+    const header = document.createElement("div"); /* NEU: Header mit Ziehungs-Toggle */
+    header.className = "group-header";
+    const h3 = document.createElement("h3");
+    h3.textContent = g; /* FIX 2: textContent statt innerHTML */
+    const toggle = document.createElement("button");
+    toggle.className = "draw-toggle";
+    toggle.textContent = drawnGroups.manual.includes(g) 
+      ? i18n[currentLang].toggleWasDrawn 
+      : i18n[currentLang].toggleInDraw;
+    toggle.onclick = () => toggleGroupDrawn('manual', g);
+    header.appendChild(h3); 
+    header.appendChild(toggle);
+    box.appendChild(header);
+    
+    const ul = document.createElement("ul");
+    groups[g].forEach((m, i)=>{
+      const li = document.createElement("li"); 
+      
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex; align-items:center; gap:6px; width:100%;";
+      
+      const handle = document.createElement("span"); /* NEU: Drag-Griff */
+      handle.className = "member-handle"; 
+      handle.textContent = "⠿"; 
+      handle.title = "Verschieben";
+      attachMemberDrag(handle, { type: 'manual', key: g, index: i });
+      
+      const nameSpan = document.createElement("span");
+      nameSpan.style.cssText = "font-weight:bold; flex-grow:1; text-align:left;";
+      nameSpan.textContent = m.name; /* FIX 2: textContent statt innerHTML */
+      
+      const rm = document.createElement("button"); /* NEU: aus Gruppe entfernen */
+      rm.className = "member-remove"; 
+      rm.textContent = "❌"; 
+      rm.title = "Aus Gruppe entfernen";
+      rm.onclick = () => removeFromManualGroup(g, i);
+      
+      row.appendChild(handle); 
+      row.appendChild(nameSpan); 
+      row.appendChild(rm);
+      li.appendChild(row);
+      
+      const sel = document.createElement("select"); 
+      sel.className = "role-select"; 
+      sel.onchange = e => changeManualRole(g, i, e.target.value);
+      
+      sel.innerHTML = `<option value="none">- Keine Rolle -</option>` + active.map(r => `<option value="${r.id}" ${m.roleId===r.id?'selected':''}>${escapeHTML(r.icon)} ${escapeHTML(r.name)}</option>`).join('');
+      
+      li.appendChild(sel); 
+      ul.appendChild(li);
+    }); 
+    box.appendChild(ul); 
+    con.appendChild(box);
+  });
+}
+
+function renderTeams(){
+  const con = document.getElementById("teamsContainer"); 
+  con.innerHTML = "";
+  
+  teams.forEach((t,i)=>{
+    const box = document.createElement("div"); 
+    box.className = "teamBox"; 
+    box.dataset.team = i; /* NEU: Drop-Ziel für Drag & Drop */
+    if(drawnGroups.auto.includes(i)) box.classList.add("drawn-group"); /* NEU */
+    
+    const header = document.createElement("div"); /* NEU: Header mit Ziehungs-Toggle */
+    header.className = "group-header";
+    const h3 = document.createElement("h3");
+    h3.textContent = teamLabel(i); /* NEU: eigener Gruppenname */
+    const rename = document.createElement("button"); /* NEU: Umbenennen */
+    rename.className = "rename-btn";
+    rename.textContent = "✏️";
+    rename.title = "Umbenennen";
+    rename.onclick = () => renameTeam(i);
+    const toggle = document.createElement("button");
+    toggle.className = "draw-toggle";
+    toggle.textContent = drawnGroups.auto.includes(i) 
+      ? i18n[currentLang].toggleWasDrawn 
+      : i18n[currentLang].toggleInDraw;
+    toggle.onclick = () => toggleGroupDrawn('auto', i);
+    header.appendChild(h3); 
+    header.appendChild(rename);
+    header.appendChild(toggle);
+    box.appendChild(header);
+    
+    const ul = document.createElement("ul");
+    t.forEach((m, idx) => {
+      const li = document.createElement("li"); 
+      
+      const handle = document.createElement("span"); /* NEU: Drag-Griff */
+      handle.className = "member-handle"; 
+      handle.textContent = "⠿"; 
+      handle.title = "Verschieben";
+      attachMemberDrag(handle, { type: 'auto', key: i, index: idx });
+      
+      const nameSpan = document.createElement("span");
+      nameSpan.className = fixedPersons.includes(m.name) ? "fixedPerson" : "";
+      nameSpan.style.cssText = "flex-grow:1; text-align:left;";
+      nameSpan.textContent = m.name; /* FIX 2: textContent statt innerHTML */
+      
+      li.appendChild(handle);
+      li.appendChild(nameSpan);
+      
+      if (m.roleId) { 
+        const r = getRoleById(m.roleId); 
+        if(r) {
+          const badge = document.createElement("span");
+          badge.className = "role-badge"; 
+          badge.title = r.desc;
+          badge.textContent = `${r.icon} ${r.name}`;
+          li.appendChild(badge);
+        }
+      }
+      ul.appendChild(li);
+    }); 
+    box.appendChild(ul); 
+    con.appendChild(box);
+  });
+}
+
+/* Service Worker Registrierung (nur im Browser/PWA, nicht in der Cordova-App) */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    if(window.cordova) return; /* In der App übernimmt Cordova das Caching */
+    navigator.serviceWorker.register('./sw.js').catch(e => console.log("SW Fehler", e));
+  });
+}
+</script>
+<script src="cordova.js"></script>
+</body>
+</html>

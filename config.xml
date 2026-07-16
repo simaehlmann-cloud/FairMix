@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="de.fairmix.app" version="1.3.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>FairMix</name>
+    <description>Mobiles Werkzeug zur Verwaltung von Namen und fairen Gruppenbildung.</description>
+    <author email="info@fairmix.de" href="http://fairmix.de">Simon Mählmann</author>
+    <content src="index.html" />
+    <access origin="*" />
+    <allow-intent href="http://*/*" />
+    <allow-intent href="https://*/*" />
+
+    <platform name="android">
+        <!-- Splash Screen (nativer Android 12+ Splash) -->
+        <preference name="AndroidWindowSplashScreenBackground" value="#003466" />
+        <preference name="AndroidWindowSplashScreenAnimatedIcon" value="res/android/icon_fg.png" />
+
+        <!-- Klassisches Launcher-Icon (quadratisch, 512x512) -->
+        <icon src="icon.png" />
+
+        <!-- Adaptive Icon: Vordergrund + Hintergrundfarbe -->
+        <resource-file src="res/android/colors.xml" target="app/src/main/res/values/fairmix_colors.xml" />
+        <icon density="ldpi"    background="@color/fairmix_bg" foreground="res/android/icon_fg.png" />
+        <icon density="mdpi"    background="@color/fairmix_bg" foreground="res/android/icon_fg.png" />
+        <icon density="hdpi"    background="@color/fairmix_bg" foreground="res/android/icon_fg.png" />
+        <icon density="xhdpi"   background="@color/fairmix_bg" foreground="res/android/icon_fg.png" />
+        <icon density="xxhdpi"  background="@color/fairmix_bg" foreground="res/android/icon_fg.png" />
+        <icon density="xxxhdpi" background="@color/fairmix_bg" foreground="res/android/icon_fg.png" />
+    </platform>
+</widget>
