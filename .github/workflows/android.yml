@@ -1,0 +1,110 @@
+name: Build Android App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install Cordova
+      run: npm install -g cordova
+
+    - name: Create Cordova Project
+      run: |
+        # 1. Neues temporäres Cordova-Projekt erstellen
+        cordova create fairmix_build de.fairmix.app FairMix
+
+        # 2. Konfiguration, Icons und Android-Ressourcen hineinkopieren
+        cp config.xml fairmix_build/config.xml
+        cp icon.png fairmix_build/icon.png
+        mkdir -p fairmix_build/res/android
+        cp res/android/icon_fg.png fairmix_build/res/android/icon_fg.png
+        cp res/android/colors.xml fairmix_build/res/android/colors.xml
+
+        cd fairmix_build
+
+        # 3. Android-Plattform frisch hinzufügen
+        cordova platform add android
+
+        # 4. Die echten App-Dateien (index.html, manifest.json, sw.js) kopieren
+        rm -rf www/*
+        cp -r ../* www/ || true
+
+        # 5. Build-Ordner sauber aufräumen
+        rm -rf www/fairmix_build www/.github www/res
+
+        # 6. html2canvas lokal bündeln (Bild-Export funktioniert dann offline)
+        curl -fL -o www/html2canvas.min.js https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js
+
+        # 7. Cache-Bereinigung erzwingen
+        cordova clean android --no-telemetry
+
+    - name: Build Debug APK (zum Testen)
+      run: |
+        cd fairmix_build
+        cordova build android --no-telemetry
+
+    - name: Build Signed Release AAB (für den Play Store)
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      run: |
+        if [ -z "$KEYSTORE_BASE64" ]; then
+          echo "⚠️ Keine Signatur-Secrets hinterlegt – Release-Build wird übersprungen."
+          echo "   Lege KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS und KEY_PASSWORD"
+          echo "   unter Settings → Secrets and variables → Actions an."
+          exit 0
+        fi
+        echo "$KEYSTORE_BASE64" | base64 -d > fairmix_build/release.keystore
+        cd fairmix_build
+
+        # Für den Play Store: App Bundle (.aab)
+        cordova build android --release --no-telemetry -- \
+          --packageType=bundle \
+          --keystore=release.keystore \
+          --storePassword="$KEYSTORE_PASSWORD" \
+          --alias="$KEY_ALIAS" \
+          --password="$KEY_PASSWORD"
+
+        # Für dich selbst: signierte, direkt installierbare .apk (gleicher Schlüssel)
+        cordova build android --release --no-telemetry -- \
+          --packageType=apk \
+          --keystore=release.keystore \
+          --storePassword="$KEYSTORE_PASSWORD" \
+          --alias="$KEY_ALIAS" \
+          --password="$KEY_PASSWORD"
+
+    - name: Upload Debug APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: FairMix-Debug-APK
+        path: fairmix_build/platforms/android/app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Upload Release AAB
+      uses: actions/upload-artifact@v4
+      with:
+        name: FairMix-Release-AAB
+        path: fairmix_build/platforms/android/app/build/outputs/bundle/release/app-release.aab
+        if-no-files-found: ignore
+
+    - name: Upload Signed Release APK (für dich selbst)
+      uses: actions/upload-artifact@v4
+      with:
+        name: FairMix-Release-APK
+        path: fairmix_build/platforms/android/app/build/outputs/apk/release/app-release.apk
+        if-no-files-found: ignore
