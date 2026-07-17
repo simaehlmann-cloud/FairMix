@@ -1,0 +1,13 @@
+{
+  "name": "FairMix Gruppenplaner",
+  "short_name": "FairMix",
+  "description": "Mobiles Werkzeug zur Verwaltung von Namen und fairen Gruppenbildung.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#bcdcff",
+  "theme_color": "#003366",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
