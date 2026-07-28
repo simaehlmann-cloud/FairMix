@@ -1,0 +1,112 @@
+name: Build FairMix (Android)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      APP_ID: de.fairmix.app
+      APP_NAME: FairMix
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Java einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Android SDK bereitstellen
+        uses: android-actions/setup-android@v3
+
+      - name: Cordova installieren
+        run: npm install -g cordova@latest
+
+      - name: Cordova-Projekt aufbauen
+        run: |
+          set -e
+          cordova create build "$APP_ID" "$APP_NAME"
+          cp config.xml build/config.xml
+          mkdir -p build/res/android
+          cp res/android/* build/res/android/
+
+          # Nur die tatsächlichen App-Dateien in www kopieren
+          rm -rf build/www/*
+          cp index.html manifest.json sw.js datenschutz.html impressum.html build/www/
+          cp icon.png icon-192.png icon-maskable-512.png build/www/
+
+          cd build
+          cordova platform add android
+          cordova clean android --no-telemetry
+
+      - name: Debug-APK bauen (zum schnellen Testen)
+        working-directory: build
+        run: cordova build android --debug --no-telemetry -- --packageType=apk
+
+      - name: Debug-APK hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: FairMix-debug-apk
+          path: build/platforms/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      # ---- Signierter Release-Build für den Play Store ----
+      # Erwartet vier Repository-Secrets:
+      #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+      #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+      - name: Keystore entschlüsseln
+        id: keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "vorhanden=false" >> "$GITHUB_OUTPUT"
+            echo "Kein Keystore hinterlegt – Release-Build wird übersprungen."
+          else
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/fairmix.keystore"
+            echo "vorhanden=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Signiertes AAB bauen
+        if: steps.keystore.outputs.vorhanden == 'true'
+        working-directory: build
+        env:
+          STORE_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PW: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cat > build.json <<JSON
+          {
+            "android": {
+              "release": {
+                "keystore": "$RUNNER_TEMP/fairmix.keystore",
+                "storePassword": "$STORE_PW",
+                "alias": "$KEY_ALIAS",
+                "password": "$KEY_PW",
+                "keystoreType": "jks"
+              }
+            }
+          }
+          JSON
+          cordova build android --release --no-telemetry -- --packageType=bundle
+          rm -f build.json
+
+      - name: AAB hochladen
+        if: steps.keystore.outputs.vorhanden == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: FairMix-release-aab
+          path: build/platforms/android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
