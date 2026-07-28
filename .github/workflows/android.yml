@@ -51,7 +51,11 @@ jobs:
           cordova platform add android
           cordova clean android --no-telemetry
 
-      - name: Debug-APK bauen (zum schnellen Testen)
+      # Hinweis: Debug-APKs werden bei jedem Lauf mit einem neu erzeugten
+      # Schlüssel signiert. Sie lassen sich deshalb nicht über eine vorhandene
+      # Installation legen. Zum wiederholten Testen das signierte Release-APK
+      # weiter unten verwenden.
+      - name: Debug-APK bauen (nur ohne hinterlegten Keystore sinnvoll)
         working-directory: build
         run: cordova build android --debug --no-telemetry -- --packageType=apk
 
@@ -79,7 +83,7 @@ jobs:
             echo "vorhanden=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Signiertes AAB bauen
+      - name: Signiert bauen (APK zum Testen und AAB für den Store)
         if: steps.keystore.outputs.vorhanden == 'true'
         working-directory: build
         env:
@@ -100,8 +104,20 @@ jobs:
             }
           }
           JSON
+          # APK: zum Aufspielen aufs eigene Gerät. Immer derselbe Schlüssel,
+          # deshalb lässt es sich über eine vorhandene Installation legen.
+          cordova build android --release --no-telemetry -- --packageType=apk
+          # AAB: das Format, das die Play Console verlangt.
           cordova build android --release --no-telemetry -- --packageType=bundle
           rm -f build.json
+
+      - name: Signiertes APK hochladen
+        if: steps.keystore.outputs.vorhanden == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: FairMix-release-apk
+          path: build/platforms/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
 
       - name: AAB hochladen
         if: steps.keystore.outputs.vorhanden == 'true'
