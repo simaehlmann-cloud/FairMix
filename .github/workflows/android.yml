@@ -78,10 +78,22 @@ jobs:
           if [ -z "$KEYSTORE_B64" ]; then
             echo "vorhanden=false" >> "$GITHUB_OUTPUT"
             echo "Kein Keystore hinterlegt – Release-Build wird übersprungen."
-          else
-            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/fairmix.keystore"
-            echo "vorhanden=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          # Unsichtbare Zeichen entfernen, die beim Kopieren aus einem Editor
+          # mitkommen können: Byte-Order-Markierung, Leerzeichen, Zeilenumbrüche.
+          printf '%s' "$KEYSTORE_B64" \
+            | sed '1s/^\xEF\xBB\xBF//' \
+            | tr -d ' \t\r\n' \
+            | base64 -d > "$RUNNER_TEMP/fairmix.keystore"
+
+          if [ ! -s "$RUNNER_TEMP/fairmix.keystore" ]; then
+            echo "::error::Der Keystore ließ sich nicht dekodieren. Bitte ANDROID_KEYSTORE_BASE64 erneut einfügen."
+            exit 1
+          fi
+          echo "Keystore dekodiert: $(wc -c < "$RUNNER_TEMP/fairmix.keystore") Bytes"
+          echo "vorhanden=true" >> "$GITHUB_OUTPUT"
 
       - name: Signiert bauen (APK zum Testen und AAB für den Store)
         if: steps.keystore.outputs.vorhanden == 'true'
@@ -99,7 +111,7 @@ jobs:
                 "storePassword": "$STORE_PW",
                 "alias": "$KEY_ALIAS",
                 "password": "$KEY_PW",
-                "keystoreType": "jks"
+                "keystoreType": "pkcs12"
               }
             }
           }
