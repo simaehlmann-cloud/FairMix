@@ -1,0 +1,52 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="de.fairmix.app"
+        version="1.8.1"
+        android-versionCode="10801"
+        xmlns="http://www.w3.org/ns/widgets"
+        xmlns:cdv="http://cordova.apache.org/ns/1.0">
+
+    <name>FairMix</name>
+    <description>Faire Gruppenbildung und Zufallsauswahl für den Unterricht. Läuft vollständig offline.</description>
+    <author email="smaehlmann.appdev@gmail.com">Wisdompeak Apps – Simon Mählmann</author>
+
+    <content src="index.html" />
+
+    <!-- Die App arbeitet offline. Es wird bewusst kein <access origin="*"> gesetzt,
+         damit die App keine fremden Inhalte laden kann. Externe Links aus der
+         Datenschutzerklärung öffnen im System-Browser statt in der App. -->
+    <allow-intent href="mailto:*" />
+    <allow-intent href="https://*/*" />
+
+    <preference name="DisallowOverscroll" value="true" />
+    <preference name="Fullscreen" value="false" />
+    <preference name="Orientation" value="default" />
+    <preference name="BackgroundColor" value="0xffbcdcff" />
+
+    <platform name="android">
+        <preference name="android-minSdkVersion"     value="24" />
+        <preference name="android-targetSdkVersion"  value="36" />
+        <preference name="android-compileSdkVersion" value="36" />
+        <preference name="AndroidInsecureFileModeEnabled" value="false" />
+        <preference name="AndroidXEnabled" value="true" />
+
+        <!-- Startbildschirm (Android 12+) -->
+        <preference name="AndroidWindowSplashScreenBackground" value="#003466" />
+        <preference name="AndroidWindowSplashScreenAnimatedIcon" value="res/android/icon_fg_xxxhdpi.png" />
+
+        <!-- Farbressource für das adaptive Icon -->
+        <resource-file src="res/android/colors.xml" target="/app/src/main/res/values/fairmix_colors.xml" />
+
+        <!-- Adaptives Icon (Vordergrund + Hintergrundfarbe) je Bildschirmdichte -->
+        <icon density="ldpi"    background="@color/fairmix_icon_background" foreground="res/android/icon_fg_ldpi.png"    src="res/android/icon_ldpi.png" />
+        <icon density="mdpi"    background="@color/fairmix_icon_background" foreground="res/android/icon_fg_mdpi.png"    src="res/android/icon_mdpi.png" />
+        <icon density="hdpi"    background="@color/fairmix_icon_background" foreground="res/android/icon_fg_hdpi.png"    src="res/android/icon_hdpi.png" />
+        <icon density="xhdpi"   background="@color/fairmix_icon_background" foreground="res/android/icon_fg_xhdpi.png"   src="res/android/icon_xhdpi.png" />
+        <icon density="xxhdpi"  background="@color/fairmix_icon_background" foreground="res/android/icon_fg_xxhdpi.png"  src="res/android/icon_xxhdpi.png" />
+        <icon density="xxxhdpi" background="@color/fairmix_icon_background" foreground="res/android/icon_fg_xxxhdpi.png" src="res/android/icon_xxxhdpi.png" />
+    </platform>
+
+    <!-- Bild- und Backup-Export laufen über das Teilen-Menü.
+         Die Datei wird als data:-URI übergeben; das Plugin legt sie über einen
+         eigenen FileProvider ab. Ein Dateisystem-Plugin ist dafür nicht nötig. -->
+    <plugin name="cordova-plugin-x-socialsharing" spec="^6.0.4" />
+</widget>
