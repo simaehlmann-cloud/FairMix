@@ -1,3 +1,114 @@
+# FairMix 1.21.2 – Gruppenpuzzle aufgeräumt
+
+245 Abläufe, Validator und Stresstest grün, Lite-Build ebenso.
+Service-Worker-Cache: `fairmix-v32`.
+
+## Bereiche werden gedämpft statt entfernt
+
+Überschrift bleibt stehen, Inhalt klappt weg, eine Marke „beim Puzzle ohne
+Wirkung" sagt warum. Vier ausgegraute Blöcke in voller Länge wären auf dem
+Handy nur toter Scrollweg zwischen dem Puzzle und den Gruppen.
+
+Ausgeschaltete Bereiche bleiben ausgeschaltet – gedämpft heißt sichtbar,
+und was in den Einstellungen aus ist, darf nicht plötzlich auftauchen.
+
+## Ergebnis der Prüfung: fünf weitere Fehler
+
+**Hoch**
+
+1. **Verschieben zwischen Gruppen ließ das Puzzle stehen.** Wer einen Kopf
+   von einer Stammgruppe in die andere zog, änderte nur `teams`. Beim
+   Umschalten auf die Expertenansicht und zurück kam der alte Stand wieder
+   – die Verschiebung war stillschweigend weg. Jetzt beendet jeder
+   Handeingriff das Puzzle. Die manuellen Gruppen bleiben unberührt.
+
+2. **Dasselbe beim Entfernen einzelner Köpfe** über das rote X in der
+   Gruppe.
+
+3. **Umbenennen lief gegen die Themen.** In der Expertenansicht *ist* der
+   Gruppenname das Thema. Nur `teamNames` zu ändern brachte nichts:
+   `applyJigsawView()` setzt die Liste beim nächsten Umschalten aus
+   `jigsaw.topics` neu. Ein Tippfehler im Thema hätte sich nur durch ein
+   komplett neues Puzzle beheben lassen – mit neuer Zufallsverteilung.
+   Jetzt benennt das Umbenennen einer Expertengruppe das Thema selbst um,
+   überall. Dubletten und leere Namen werden abgewiesen.
+
+   In der Stammansicht ist „Stammgruppe 3" dagegen erzeugt und würde beim
+   Umschalten neu vergeben. Dort ist der Stift ausgeblendet.
+
+**Mittel**
+
+4. **Die Marke lag in der Überschrift** – und `setLanguage()` setzt
+   `textContent` aller `[data-i18n]`-Elemente neu. Beim Sprachwechsel war
+   sie weg. Sie hängt jetzt am Kasten statt in der Überschrift.
+
+5. **Zwei CSS-Fehlerklassen, die kein Smoketest sehen kann.** Der
+   Validator prüft jetzt zusätzlich, dass jede vom Skript gesetzte Klasse
+   im Stylesheet existiert (47 Stück) und dass `.muted-box` den Inhalt
+   wirklich wegklappt, ohne die eigene Marke mitzunehmen.
+
+**Ohne Befund**
+
+- Laufzeit nach dem Umbau eher besser: 35 Namen auf 6 Themen in 0,021 ms,
+  `parseTopics` mit 5000 verschiedenen Zeilen in 0,56 ms.
+- Keine Netzwerkaufrufe, kein `eval`, `innerHTML` nur zum Leeren, vier
+  Speicherschlüssel wie bisher, eine einzige externe Adresse (Play Store).
+- Beide Sprachen vollständig: 297 Schlüssel, keine Lücke in eine Richtung.
+- `memberBadgeLabel()` ausgelagert, damit die Marken-Entscheidung des
+  Bild-Exports prüfbar ist – Canvas lässt sich im Test nicht nachlesen.
+
+Rund fünfzig Mutationen für das Gruppenpuzzle, alle erkannt. Sechs davon
+blieben im ersten Anlauf unentdeckt und haben jeweils eine Lücke im Test
+oder im Prüfaufbau aufgedeckt.
+
+## Was die Tests weiterhin nicht sehen
+
+Wie das Ganze aussieht. Vor dem Store-Build auf dem Gerät: gedämpfte
+Bereiche mit langen Überschriften, Themenmarke neben langen Namen,
+Präsentationsmodus mit fünf Themen, Bild-Export.
+
+---
+
+# FairMix 1.21.1 – Gruppenpuzzle
+
+## Nachtrag 1.21.1: hidden wirkte nicht
+
+Aus einem Screenshot: „Stammgruppen" und „Expertengruppen" standen sichtbar
+auf der Seite, auch in Lite und auch bei abgeschaltetem Gruppenpuzzle.
+
+Die Ursache lag im CSS, nicht in der Logik. Der Browser blendet `[hidden]`
+nur über sein eigenes Stylesheet aus; **jede** Klasse mit `display: …`
+hebelt das aus. `.btn-row { display: flex }` machte die Umschalter sichtbar,
+während `applyFeatureVisibility()` sie korrekt auf `hidden` gesetzt hatte.
+
+Betroffen waren vier Elemente, drei davon neu von mir (`jigsawSwitchRow`,
+`liteUpsellRow`, `aboutLiteRow` – in Pro stand also „Was kann FairMix Pro?"
+sichtbar herum) und eines schon vorher: **`classBar`**. Die Klassenleiste war
+sichtbar, obwohl `updateClassBar()` sie ausblendete – auch in Lite, wo die
+Klassenverwaltung gesperrt ist.
+
+Behoben mit einer Regel: `[hidden] { display: none !important; }`.
+
+Der Smoketest konnte das nicht sehen – sein DOM kennt kein CSS, `hidden`
+ist dort nur eine Eigenschaft. Deshalb prüft jetzt der **Validator**: die
+Regel muss vorhanden sein und Vorrang haben. Beide Mutationen dazu werden
+erkannt, vom Smoketest erwartungsgemäß keine.
+
+## Nachtrag: Puzzle-Modus räumt die Seite auf
+
+- Der Umschalter erscheint erst, wenn ein Puzzle wirklich gebildet ist –
+  nicht schon beim Einschalten der Funktion oder beim Tippen der Themen.
+- Solange ein Puzzle steht, verschwinden Regeln, fixierte Personen, Stufen
+  und Partnerhistorie samt Stufen-Auswahl. Sie hätten dort keine Wirkung;
+  sichtbar zu bleiben wäre ein Versprechen, das die App nicht einlöst. Ein
+  Hinweis sagt, warum sie fehlen und wie man sie zurückholt.
+- „Gruppen generieren" und „Gruppen verwerfen" beenden das Puzzle, die
+  Bereiche kommen zurück. Beides ist als Ablauf hinterlegt.
+
+234 Abläufe, sechs weitere Mutationen, alle erkannt.
+
+---
+
 # FairMix 1.21.0 – Gruppenpuzzle
 
 Service-Worker-Cache: `fairmix-v30`
@@ -129,7 +240,7 @@ langen Themennamen, Präsentationsmodus mit fünf Themen, Bild-Export.
 ## Prüfung vor dem Push
 
     node validate.js      # Struktur, Offline, Rechtstexte, Versionen, Lite-Schalter
-    node smoketest.js     # 229 Abläufe – ruft sich selbst als Lite erneut auf
+    node smoketest.js     # 245 Abläufe – ruft sich selbst als Lite erneut auf
     node stresstest.js    # 3000 Gruppenbildungen
     ./mutate.sh           # nach einer eingebauten Mutation aufrufen
     ./build-lite.sh       # erzeugt lite/ und prüft es mit FAIRMIX_LITE=1

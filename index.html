@@ -141,6 +141,28 @@ h3 { font-size: clamp(17px, 4vw, 21px); margin: var(--sp-6) 0 var(--sp-3); }
 .orange { background: var(--c-orange); }
 .grey   { background: var(--c-grey); }
 
+/* Der Browser blendet [hidden] nur ueber sein eigenes Stylesheet aus.
+   Jede Klasse, die display setzt, hebelt das aus – .btn-row, .class-bar
+   und andere. Deshalb hier ausdruecklich und mit Vorrang. Ohne diese
+   Zeile stehen ausgeblendete Schaltflaechen sichtbar auf der Seite,
+   waehrend die Logik sie fuer versteckt haelt. */
+[hidden] { display: none !important; }
+
+/* Bereiche, die im Gruppenpuzzle keine Wirkung haben: Ueberschrift bleibt
+   stehen, damit die Seite ihre Ordnung behaelt, der Inhalt klappt weg.
+   Vier ausgegraute Bloecke in voller Laenge waeren auf dem Handy nur
+   toter Scrollweg zwischen dem Puzzle und den Gruppen. */
+.muted-box { opacity: 0.55; }
+.muted-box > *:not(h3):not(.mute-tag) { display: none; }
+.mute-tag {
+  display: inline-block; margin-left: 8px; padding: 1px 8px;
+  border-radius: 999px; background: var(--accent-soft, #dbe9ff);
+  color: var(--accent-strong, #003366);
+  font-size: 12px; font-weight: 700; vertical-align: middle;
+}
+.muted-box .mute-tag { display: inline-block; margin: 0 0 4px; }
+.dark-mode .mute-tag { background: #16324f; color: #cfe4ff; }
+
 .btn-row { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-1); }
 
 /* Eine Zeile statt eines Kastens: der Wechsel ist eine Nebenhandlung
@@ -950,6 +972,7 @@ body.dark-mode .text-link { color: var(--border-color); }
   </div>
 
   <h3 data-i18n="titleCreatedTeams">Erstellte Gruppen</h3>
+  <p id="jigsawActiveHint" class="hint" data-i18n="hintJigsawActive" hidden>Gruppenpuzzle aktiv – die Themen bestimmen die Einteilung. Regeln, fixierte Personen und Stufen sind so lange ausgeblendet. „Gruppen generieren“ oder „Gruppen verwerfen“ beendet das Puzzle.</p>
   <div id="jigsawSwitchRow" class="btn-row" hidden>
     <button id="jigsawViewHome"   class="btn blue" onclick="switchJigsawView('home')"   data-i18n="btnJigsawHome">Stammgruppen</button>
     <button id="jigsawViewExpert" class="btn blue" onclick="switchJigsawView('expert')" data-i18n="btnJigsawExpert">Expertengruppen</button>
@@ -1102,7 +1125,7 @@ body.dark-mode .text-link { color: var(--border-color); }
 /* =================================================================
    FairMix Pro
    ================================================================= */
-const APP_VERSION = "1.21.0";
+const APP_VERSION = "1.21.2";
 
 /* -------------------------------------------------
    0  Fassung: Lite oder Pro
@@ -1226,6 +1249,9 @@ const i18n = {
     msgJigsawTooFewNames: "Es sind weniger Namen als Themen da. Nimm weniger Themen oder hol Abwesende zurück.",
     msgJigsawWarnSmall: "Es reicht nur für eine Stammgruppe – jede Expertengruppe hätte eine Person. Nimm weniger Themen.",
     msgJigsawDone: "Gruppenpuzzle gebildet.",
+    hintJigsawActive: "Gruppenpuzzle aktiv – die Themen bestimmen die Einteilung. „Gruppen generieren“ oder „Gruppen verwerfen“ beendet das Puzzle.",
+    tagNoEffectJigsaw: "beim Puzzle ohne Wirkung",
+    msgTopicDuplicate: "Dieses Thema gibt es schon.",
     titleDemo: "Erst einmal ausprobieren?",
     hintDemo: "Lädt eine Beispielklasse mit 24 Namen, Stufen und zwei Regeln. So siehst du alles in Aktion, ohne etwas zu tippen.",
     btnLoadDemo: "Beispielklasse laden",
@@ -1546,6 +1572,9 @@ const i18n = {
     msgJigsawTooFewNames: "There are fewer names than topics. Use fewer topics or bring absentees back.",
     msgJigsawWarnSmall: "That is only enough for one home group \u2013 each expert group would have one person. Use fewer topics.",
     msgJigsawDone: "Jigsaw groups created.",
+    hintJigsawActive: "Jigsaw active \u2013 the topics decide the arrangement. \u201cGenerate groups\u201d or \u201cDiscard groups\u201d ends the jigsaw.",
+    tagNoEffectJigsaw: "no effect in the jigsaw",
+    msgTopicDuplicate: "That topic already exists.",
     titleDemo: "Want to try it out first?",
     hintDemo: "Loads a sample class with 24 names, levels and two rules. That way you can see everything in action without typing anything.",
     btnLoadDemo: "Load sample class",
@@ -2352,15 +2381,49 @@ function openProStore() {
   }
 }
 
+/* Klappt einen Bereich zusammen und markiert ihn als wirkungslos, ohne
+   ihn zu entfernen. Die Ueberschrift bleibt als Orientierung stehen.
+
+   Die Marke haengt am Kasten, nicht in der Ueberschrift: setLanguage()
+   setzt bei jedem Sprachwechsel textContent aller [data-i18n]-Elemente
+   und wuerde eingehaengte Kinder dabei loeschen. Sichtbar bleibt sie
+   trotz zugeklapptem Inhalt ueber die CSS-Ausnahme fuer .mute-tag –
+   sie steht damit direkt unter der Ueberschrift.
+
+   Kein disabled am Kasten: die Ueberschrift soll vorlesbar bleiben. */
+function muteBox(id, gedaempft) {
+  const box = document.getElementById(id);
+  if (!box) return;
+  box.classList.toggle("muted-box", gedaempft);
+  box.setAttribute("aria-disabled", gedaempft ? "true" : "false");
+
+  let marke = box.querySelector(".mute-tag");
+  if (gedaempft) {
+    if (!marke) { marke = el("span", { className: "mute-tag" }); box.appendChild(marke); }
+    marke.textContent = t('tagNoEffectJigsaw');
+  } else if (marke) {
+    box.removeChild(marke);
+  }
+}
+
 function applyFeatureVisibility() {
   const set = (id, on) => { const n = document.getElementById(id); if (n) n.hidden = !on; };
   set("featureData",  featureOn('data'));
+  /* Solange ein Gruppenpuzzle steht, bestimmen die Themen die
+     Zusammensetzung. Regeln, fixierte Personen, Stufen und die
+     Partnerhistorie haetten dort keine Wirkung – sichtbar zu bleiben
+     waere ein Versprechen, das die App nicht einloest. */
+  const puzzle = jigsawActive();
   set("featureFixed", featureOn('fixed'));
   set("featureRules", featureOn('rules'));
   set("featureLevels", featureOn('levels'));
   set("featurePartners", featureOn('partners'));
+  set("featureLevelMode", featureOn('levels'));
+  ['featureFixed', 'featureRules', 'featureLevels', 'featurePartners', 'featureLevelMode']
+    .forEach(id => muteBox(id, puzzle));
   set("featureJigsaw",   featureOn('jigsaw'));
-  set("jigsawSwitchRow", jigsawActive());
+  set("jigsawSwitchRow", puzzle);
+  set("jigsawActiveHint", puzzle);
   set("settingsExport",  canExport());
   set("settingsBackup",  canImport());
   set("liteExportHint",  IS_LITE);
@@ -2369,7 +2432,6 @@ function applyFeatureVisibility() {
   set("aboutLiteP",      IS_LITE);
   set("aboutLiteRow",    IS_LITE);
   set("saveLoadBox",     featureOn('classes'));
-  set("featureLevelMode", featureOn('levels'));
   document.querySelectorAll(".feature-roles").forEach(b => { b.hidden = !featureOn('roles'); });
 }
 
@@ -2891,6 +2953,11 @@ function moveMember(info, target) {
   if (!member) return null;
 
   pushUndo();
+  /* Nur die automatischen Gruppen gehoeren zum Puzzle. Wird dort von Hand
+     verschoben, weichen Stamm- und Expertenansicht voneinander ab: der
+     Umschalter holte den alten Stand zurueck und die Verschiebung waere
+     stillschweigend weg. Die manuellen Gruppen sind davon unberuehrt. */
+  if (info.type !== 'manual') endJigsaw();
   quelle.splice(info.index, 1);
   ziel.push(member);
   saveState();
@@ -3061,12 +3128,9 @@ function exportAsImage(mode) {
 
       let ry = y + CARD_PAD + TITLE_H;
       c.members.forEach(m => {
-        const role = (featureOn('roles') && m.roleId) ? getRoleById(m.roleId) : null;
-        const thema = (jigsawActive() && jigsaw.view === 'home' && Number.isInteger(m.topic))
-                      ? jigsaw.topics[m.topic] : null;
-        let badgeW = 0, badgeLabel = "";
-        if (role || thema) {
-          badgeLabel = thema ? thema : (role.icon + " " + roleName(role));
+        let badgeW = 0;
+        const badgeLabel = memberBadgeLabel(m);
+        if (badgeLabel) {
           ctx.font = "700 14px " + FONT;
           badgeW = Math.min(170, ctx.measureText(badgeLabel).width + 18);
         }
@@ -4260,6 +4324,18 @@ function endJigsaw() {
 
 function jigsawActive() { return !!jigsaw && featureOn('jigsaw'); }
 
+/* Welche Marke rechts neben einem Namen steht. Ausgelagert, weil der
+   Bild-Export auf Canvas zeichnet und im Test nicht nachzulesen ist –
+   diese Entscheidung aber sehr wohl. Im Puzzle hat das Thema Vorrang;
+   Rollen werden dort ohnehin nicht vergeben. */
+function memberBadgeLabel(m) {
+  if (!m) return "";
+  if (jigsawActive() && jigsaw.view === 'home' && Number.isInteger(m.topic))
+    return jigsaw.topics[m.topic];
+  const role = (featureOn('roles') && m.roleId) ? getRoleById(m.roleId) : null;
+  return role ? role.icon + " " + roleName(role) : "";
+}
+
 /* -------------------------------------------------
    19  Automatische Gruppen
    ------------------------------------------------- */
@@ -4705,7 +4781,26 @@ function teamLabel(i) { return teamNames[i] || (t('groupWord') + " " + (i + 1));
 function renameTeam(i) {
   uiPrompt(t('promptRenameGroup'), teamLabel(i)).then(value => {
     if (value === null) return;
-    teamNames[i] = String(value).trim();
+    const name = String(value).trim();
+
+    /* In der Expertenansicht ist der Gruppenname das Thema. Nur teamNames
+       zu aendern brachte nichts: applyJigsawView() setzt die Liste beim
+       naechsten Umschalten aus jigsaw.topics neu. Ein Tippfehler im Thema
+       liesse sich sonst nur durch ein komplett neues Puzzle beheben – mit
+       neuer Zufallsverteilung. */
+    if (jigsawActive() && jigsaw.view === 'expert') {
+      const sauber = parseTopics(name)[0];
+      if (!sauber) return notify(t('msgJigsawNeedTopics'), true);
+      if (jigsaw.topics.some((x, k) => k !== i && x.toLowerCase() === sauber.toLowerCase()))
+        return notify(t('msgTopicDuplicate'), true);
+      jigsaw.topics[i] = sauber;
+      applyJigsawView();
+      saveState();
+      renderAll();
+      return;
+    }
+
+    teamNames[i] = name;
     saveState();
     renderTeams();
   });
@@ -4715,6 +4810,7 @@ function removeFromTeam(i, idx) {
   const m = teams[i] && teams[i][idx];
   if (!m) return;
   pushUndo();
+  endJigsaw();          /* siehe moveMember: sonst kehrt der Kopf beim Umschalten zurueck */
   teams[i].splice(idx, 1);
   saveState();
   renderAll();
@@ -5270,7 +5366,10 @@ function renderTeams() {
     header.appendChild(el("h3", { text: teamLabel(i) }));
 
     const actions = el("div", { className: "header-actions" });
-    actions.appendChild(el("button", {
+    /* In der Stammansicht ist "Stammgruppe 3" erzeugt und wird beim
+       Umschalten neu vergeben – ein Umbenennen waere sofort wieder weg. */
+    const umbenennbar = !(jigsawActive() && jigsaw.view === 'home');
+    if (umbenennbar) actions.appendChild(el("button", {
       className: "icon-action", text: "✏️", title: t('tipRename'), aria: t('tipRename'),
       onClick: () => renameTeam(i)
     }));

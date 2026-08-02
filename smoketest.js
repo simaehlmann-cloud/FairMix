@@ -2866,6 +2866,123 @@ check('Das Thema steht an der Person, aber nur in der Stammansicht', () => {
   g('switchJigsawView')('home');
 });
 
+check('Der Umschalter erscheint erst mit einem gebildeten Puzzle', () => {
+  puzzleAufbau(12);
+  g('renderAll')();
+  assert($('jigsawSwitchRow').hidden === true, 'Umschalter vor der Bildung sichtbar');
+  assert($('jigsawActiveHint').hidden === true, 'Hinweis vor der Bildung sichtbar');
+
+  /* Themen eingetippt, aber noch nicht gebildet: weiterhin nichts. */
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('renderAll')();
+  assert($('jigsawSwitchRow').hidden === true, 'Umschalter allein durch Themeneingabe sichtbar');
+
+  g('generateJigsaw')();
+  assert($('jigsawSwitchRow').hidden === false, 'Umschalter nach der Bildung unsichtbar');
+  assert($('jigsawActiveHint').hidden === false, 'Hinweis nach der Bildung unsichtbar');
+});
+
+check('Ausgeschaltetes Gruppenpuzzle blendet Bereich und Umschalter aus', () => {
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  assert($('featureJigsaw').hidden === false, 'Vorbedingung: Bereich unsichtbar');
+
+  vm.runInContext("features.jigsaw = false;", ctx);
+  g('renderAll')();
+  assert($('featureJigsaw').hidden === true, 'Puzzle-Bereich trotz Abschaltung sichtbar');
+  assert($('jigsawSwitchRow').hidden === true, 'Umschalter trotz Abschaltung sichtbar');
+  assert(g('jigsawActive')() === false, 'jigsawActive meldet true');
+  vm.runInContext("features.jigsaw = true;", ctx);
+});
+
+check('Bereiche ohne Wirkung verschwinden, solange ein Puzzle steht', () => {
+  puzzleAufbau(12);
+  vm.runInContext("features.rules = true; features.fixed = true; features.levels = true; features.partners = true;", ctx);
+  g('renderAll')();
+  ['featureRules', 'featureFixed', 'featureLevels', 'featurePartners'].forEach(id => {
+    assert($(id).hidden === false, id + ' schon ohne Puzzle ausgeblendet');
+  });
+
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  const betroffen = ['featureRules', 'featureFixed', 'featureLevels', 'featurePartners', 'featureLevelMode'];
+  betroffen.forEach(id => {
+    /* Gedämpft, nicht entfernt: die Überschrift bleibt als Orientierung
+       stehen, der Inhalt klappt weg. */
+    assert($(id).hidden === false, id + ' wurde entfernt statt gedämpft');
+    assert($(id).classList.contains('muted-box'), id + ' nicht gedämpft');
+    assert($(id).getAttribute('aria-disabled') === 'true', id + ' meldet sich nicht als wirkungslos');
+    const marke = $(id).querySelector('.mute-tag');
+    assert(marke && marke.textContent === g('t')('tagNoEffectJigsaw'),
+           id + ' ohne Marke in der Überschrift');
+  });
+
+  /* Zweimal rendern darf die Marke nicht verdoppeln. */
+  g('renderAll')();
+  assert($('featureRules').querySelectorAll('.mute-tag').length === 1,
+         'Marke doppelt nach erneutem Rendern');
+
+  /* Gruppen generieren beendet das Puzzle – dann sind sie wieder normal. */
+  $('teamCount').value = '3'; $('teamSize').value = '';
+  g('generateTeams')();
+  betroffen.forEach(id => {
+    assert($(id).hidden === false, id + ' bleibt nach dem Puzzle verschwunden');
+    assert(!$(id).classList.contains('muted-box'), id + ' bleibt gedämpft');
+    assert($(id).getAttribute('aria-disabled') === 'false', id + ' meldet sich weiter als wirkungslos');
+    assert($(id).querySelector('.mute-tag') === null, id + ' behält die Marke');
+  });
+  assert($('jigsawSwitchRow').hidden === true, 'Umschalter überlebt Gruppen generieren');
+});
+
+check('Abgeschaltete Bereiche bleiben auch im Puzzle weg', () => {
+  /* Gedämpft heißt sichtbar. Wer den Bereich in den Einstellungen
+     ausgeschaltet hat, darf ihn trotzdem nicht zu sehen bekommen. */
+  puzzleAufbau(12);
+  vm.runInContext("features.rules = false; features.levels = false;", ctx);
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  assert($('featureRules').hidden === true, 'ausgeschalteter Regelbereich taucht auf');
+  assert($('featureLevels').hidden === true, 'ausgeschalteter Stufenbereich taucht auf');
+  assert($('featureLevelMode').hidden === true, 'Stufenmischung taucht auf');
+  vm.runInContext("features.rules = true; features.levels = true;", ctx);
+});
+
+check('Die Marke übersteht den Sprachwechsel', () => {
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+
+  /* setLanguage setzt textContent aller [data-i18n]-Elemente neu. Läge
+     die Marke in der Überschrift, wäre sie danach weg. */
+  g('setLanguage')('en');
+  assert($('featureRules').querySelector('.mute-tag') !== null,
+         'Marke vom Sprachwechsel gelöscht');
+
+  g('setLanguage')('de');
+  g('chooseLanguage')('en');
+  const marke = $('featureRules').querySelector('.mute-tag');
+  assert(marke && marke.textContent === g('t')('tagNoEffectJigsaw'),
+         'Marke nach Sprachwechsel: ' + (marke ? marke.textContent : 'fehlt'));
+  assert(marke.textContent !== 'beim Puzzle ohne Wirkung', 'Marke blieb deutsch');
+  g('chooseLanguage')('de');
+});
+
+check('Gruppen verwerfen beendet das Puzzle ebenfalls', async () => {
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+
+  /* Verwerfen fragt nach – erst die Bestätigung räumt wirklich auf. */
+  g('resetTeams')(); await flush();
+  assert(g('jigsaw') !== null, 'Puzzle schon vor der Bestätigung weg');
+  g('closeDialog')(true); await flush();
+
+  assert(g('jigsaw') === null, 'Puzzle überlebt Gruppen verwerfen');
+  assert($('jigsawSwitchRow').hidden === true, 'Umschalter bleibt nach dem Verwerfen');
+  assert(!$('featureRules').classList.contains('muted-box'), 'Regelbereich bleibt gedämpft');
+});
+
 check('Rollen, Regeln und Stufen bleiben beim Puzzle außen vor', () => {
   vm.runInContext("features.roles = true; activeRoleIds = ['r1','r2']; saveState();", ctx);
   puzzleAufbau(12);
@@ -2887,6 +3004,181 @@ check('Handeingriff beendet das Puzzle, statt falsche Zuordnungen zu zeigen', ()
 
   g('renderAll')();
   assert($('jigsawSwitchRow').hidden === true, 'Umschalter bleibt sichtbar');
+});
+
+check('Verschieben zwischen Gruppen beendet das Puzzle', () => {
+  /* Sonst holte der Umschalter den alten Stand zurück und die
+     Verschiebung wäre stillschweigend weg. */
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  const name = g('teams')[0][0].name;
+
+  const bewegt = g('moveMember')({ type: 'auto', key: 0, index: 0 }, '1');
+  assert(bewegt && bewegt.name === name, 'Verschieben fehlgeschlagen');
+  assert(g('jigsaw') === null, 'Puzzle überlebt das Verschieben');
+  assert(g('teams')[1].some(m => m.name === name), 'Kopf nicht angekommen');
+  assert(g('teams')[0].every(m => m.name !== name), 'Kopf noch in der alten Gruppe');
+});
+
+check('Verschieben in den manuellen Gruppen lässt das Puzzle stehen', () => {
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  vm.runInContext("groups = { G1: [{ name: 'P1', roleId: null }], G2: [] };", ctx);
+
+  g('moveMember')({ type: 'manual', key: 'G1', index: 0 }, 'G2');
+  assert(g('jigsaw') !== null, 'Puzzle von den manuellen Gruppen beendet');
+  assert(g('groups').G2.length === 1, 'manuelles Verschieben fehlgeschlagen');
+});
+
+check('Einzelnen aus der Gruppe werfen beendet das Puzzle', () => {
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  g('removeFromTeam')(0, 0);
+  assert(g('jigsaw') === null, 'Puzzle überlebt das Entfernen');
+});
+
+check('Umbenennen einer Expertengruppe benennt das Thema um', async () => {
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'Wasser\nLuft\nErde';
+  g('generateJigsaw')();
+  g('switchJigsawView')('expert');
+
+  g('renameTeam')(1); await flush();
+  $('dialogInput').value = 'Feuer';
+  g('closeDialog')(true); await flush();
+
+  assert(g('jigsaw').topics[1] === 'Feuer', 'Thema: ' + g('jigsaw').topics[1]);
+  assert(g('teamLabel')(1) === 'Feuer', 'Beschriftung: ' + g('teamLabel')(1));
+
+  /* Entscheidend: der neue Name überlebt das Umschalten. */
+  g('switchJigsawView')('home');
+  g('switchJigsawView')('expert');
+  assert(g('teamLabel')(1) === 'Feuer', 'Name nach dem Umschalten: ' + g('teamLabel')(1));
+
+  /* Und er steht auch an der Person in der Stammansicht. */
+  g('switchJigsawView')('home');
+  g('renderTeams')();
+  const marken = documentStub.querySelectorAll('.topic-tag').map(x => x.textContent);
+  assert(marken.indexOf('Feuer') > -1, 'Themenmarken: ' + marken.join('|'));
+  assert(marken.indexOf('Luft') === -1, 'alter Name noch da');
+});
+
+check('Ein Thema lässt sich nicht auf ein vorhandenes umbenennen', async () => {
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'Wasser\nLuft\nErde';
+  g('generateJigsaw')();
+  g('switchJigsawView')('expert');
+
+  g('renameTeam')(1); await flush();
+  $('dialogInput').value = 'Wasser';
+  g('closeDialog')(true); await flush();
+  assert(g('jigsaw').topics[1] === 'Luft', 'Dublette übernommen: ' + g('jigsaw').topics[1]);
+
+  g('renameTeam')(1); await flush();
+  $('dialogInput').value = '   ';
+  g('closeDialog')(true); await flush();
+  assert(g('jigsaw').topics[1] === 'Luft', 'Leername übernommen: ' + g('jigsaw').topics[1]);
+});
+
+check('In der Stammansicht gibt es keinen Umbenennen-Stift', () => {
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  g('switchJigsawView')('home');
+  g('renderTeams')();
+  /* Nur im Gruppenkasten zählen – die manuellen Gruppen haben eigene Stifte. */
+  const stifte = () => $('teamsContainer').querySelectorAll('.icon-action')
+                        .filter(b => b.textContent === '✏️');
+  assert(stifte().length === 0, 'Stifte in der Stammansicht: ' + stifte().length);
+
+  g('switchJigsawView')('expert');
+  g('renderTeams')();
+  assert(stifte().length === 3, 'Stifte in der Expertenansicht: ' + stifte().length);
+
+  /* Ohne Puzzle bleibt das Umbenennen überall erreichbar. */
+  $('teamCount').value = '3'; $('teamSize').value = '';
+  g('generateTeams')();
+  assert(stifte().length === 3, 'Stifte ohne Puzzle: ' + stifte().length);
+});
+
+check('Die Marke im Bild-Export: Thema vor Rolle, sonst nichts', () => {
+  /* Der Bild-Export zeichnet auf Canvas und ist hier nicht nachzulesen.
+     Geprüft wird deshalb die Entscheidung, welche Marke gesetzt wird. */
+  puzzleAufbau(12);
+  vm.runInContext("features.roles = true; activeRoleIds = ['r1'];", ctx);
+  const label = g('memberBadgeLabel');
+
+  assert(label(null) === '', 'null ergibt keine leere Marke');
+  assert(label({ name: 'X', roleId: null }) === '', 'Marke ohne Rolle und Thema');
+
+  const mitRolle = { name: 'X', roleId: 'r1' };
+  assert(label(mitRolle).length > 0, 'Rolle ergibt keine Marke');
+
+  $('jigsawTopics').value = 'Wasser\nLuft\nErde';
+  g('generateJigsaw')();
+  const m = g('teams')[0][0];
+  assert(label(m) === g('jigsaw').topics[m.topic], 'Thema fehlt: ' + label(m));
+
+  /* Selbst mit gesetzter Rolle gewinnt im Puzzle das Thema. */
+  const gemischt = { name: 'X', roleId: 'r1', topic: 1 };
+  assert(label(gemischt) === g('jigsaw').topics[1], 'Rolle verdrängt das Thema: ' + label(gemischt));
+
+  /* In der Expertenansicht steht das Thema in der Überschrift. */
+  g('switchJigsawView')('expert');
+  assert(label(m) === '', 'Thema doppelt in der Expertenansicht: ' + label(m));
+  g('switchJigsawView')('home');
+
+  /* Ohne Puzzle zählt wieder die Rolle. */
+  $('teamCount').value = '3'; $('teamSize').value = '';
+  g('generateTeams')();
+  assert(label(gemischt).length > 0 && label(gemischt).indexOf('Wasser') === -1,
+         'ohne Puzzle: ' + label(gemischt));
+});
+
+check('Der Präsentationsmodus zeigt das Thema an der Person', () => {
+  /* Ohne diese Marke wüsste an der Wand niemand, in welche
+     Expertengruppe er nach der Stammphase gehört. */
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'Wasser\nLuft\nErde';
+  g('generateJigsaw')();
+  g('switchJigsawView')('home');
+
+  g('openPresentation')('auto');
+  const marken = $('presentGrid').querySelectorAll('.topic-badge');
+  assert(marken.length === 12, 'Themenmarken in der Präsentation: ' + marken.length);
+  assert(['Wasser', 'Luft', 'Erde'].indexOf(marken[0].textContent) > -1,
+         'Marke zeigt "' + marken[0].textContent + '"');
+  g('closePresentation')();
+
+  /* In der Expertenansicht steht das Thema in der Überschrift. */
+  g('switchJigsawView')('expert');
+  g('openPresentation')('auto');
+  assert($('presentGrid').querySelectorAll('.topic-badge').length === 0,
+         'Themenmarke doppelt in der Expertenansicht');
+  assert($('presentGrid').textContent.indexOf('Wasser') > -1, 'Thema fehlt in der Überschrift');
+  g('closePresentation')();
+});
+
+check('Klassenwechsel beendet das Puzzle', async () => {
+  puzzleAufbau(12);
+  vm.runInContext("features.classes = true;", ctx);
+
+  /* Erst eine Klasse anlegen, sonst findet switchClass nichts und bricht ab. */
+  $('saveNameInput').value = 'Klasse A';
+  g('saveNames')(); await flush(); g('closeDialog')(true); await flush();
+
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  assert(g('jigsaw') !== null, 'Vorbedingung: kein Puzzle');
+
+  $('saveNameInput').value = 'Klasse B';
+  g('saveNames')(); await flush(); g('closeDialog')(true); await flush();
+
+  g('switchClass')('Klasse A'); await flush(); g('closeDialog')(true); await flush();
+  assert(g('jigsaw') === null, 'Puzzle überlebt den Klassenwechsel');
 });
 
 check('Normale Gruppenbildung beendet das Puzzle', () => {
@@ -3104,6 +3396,18 @@ checkLite('Die Zurück-Taste schließt den Hinweis, statt die App zu verlassen',
   const zweig = rohHtml.slice(rohHtml.indexOf('"backbutton"'), rohHtml.indexOf('"backbutton"') + 600);
   assert(zweig.indexOf('liteInfoIsOpen') > -1, 'Zurück-Taste kennt den Hinweis nicht');
   assert(zweig.indexOf('liteInfoIsOpen') < zweig.indexOf('exitApp'), 'Prüfung steht nach exitApp');
+});
+
+checkLite('Gruppenpuzzle bleibt vollständig verschlossen', () => {
+  vm.runInContext("Object.keys(features).forEach(k => features[k] = true); jigsaw = { topics: ['A','B'], view: 'home', home: [[]], expert: [[],[]] };", ctx);
+  g('renderAll')();
+  assert(g('featureOn')('jigsaw') === false, 'Funktion aktiv');
+  assert(g('jigsawActive')() === false, 'jigsawActive meldet true');
+  assert($('featureJigsaw').hidden === true, 'Puzzle-Bereich sichtbar');
+  assert($('jigsawSwitchRow').hidden === true, 'Umschalter sichtbar');
+  assert($('jigsawActiveHint').hidden === true, 'Hinweis sichtbar');
+  vm.runInContext("jigsaw = null;", ctx);
+  g('renderAll')();
 });
 
 checkLite('Export bleibt erreichbar, der Import verschwindet', () => {

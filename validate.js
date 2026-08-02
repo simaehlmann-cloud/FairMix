@@ -179,6 +179,66 @@ for (const [re, msg] of [
 ]) if (!re.test(cfg)) E(msg);
 if (!errors.some(e => e.startsWith('config.xml'))) O('config.xml vollständig');
 
+/* ---------- 12a. hidden wirkt auch gegen display-Klassen ---------- */
+/* Der Browser blendet [hidden] nur über sein eigenes Stylesheet aus. Jede
+   Klasse mit display: … hebelt das aus, und der Smoketest sieht es nicht,
+   weil sein DOM kein CSS kennt. Genau so standen "Stammgruppen" und
+   "Expertengruppen" sichtbar auf der Seite, während die Logik sie für
+   versteckt hielt. */
+const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+if (!/\[hidden\]\s*\{[^}]*display\s*:\s*none\s*!important/.test(css))
+  E('Regel [hidden] { display: none !important; } fehlt – ausgeblendete Elemente mit display-Klasse bleiben sichtbar');
+else {
+  const mitDisplay = new Set();
+  for (const m of css.matchAll(/\.([\w-]+)\s*\{([^}]*)\}/g))
+    if (/\bdisplay\s*:/.test(m[2])) mitDisplay.add(m[1]);
+
+  const markup = html.slice(html.indexOf('</style>'));
+  const betroffen = [];
+  for (const m of markup.matchAll(/<\w+([^>]*\bhidden\b[^>]*)>/g)) {
+    const kl = /class="([^"]*)"/.exec(m[1]);
+    if (!kl) continue;
+    if (kl[1].split(/\s+/).some(c => mitDisplay.has(c))) {
+      const id = /id="([^"]*)"/.exec(m[1]);
+      betroffen.push(id ? id[1] : kl[1]);
+    }
+  }
+  O(`hidden schlägt display durch (${betroffen.length} Element(e) darauf angewiesen)`);
+}
+
+/* ---------- 12a2. Vom Skript gesetzte Klassen gibt es auch im CSS ---------- */
+/* Zweite Hälfte derselben Fehlerklasse: das Skript schaltet eine Klasse
+   ein, die im Stylesheet gar nicht steht. Die Logik meldet Erfolg, sichtbar
+   ändert sich nichts, und der Smoketest merkt es nicht – sein DOM kennt
+   kein CSS. Deshalb hier der Abgleich. */
+{
+  const inCss = new Set();
+  for (const m of css.matchAll(/\.([\w-]+)/g)) inCss.add(m[1]);
+
+  const ausJs = new Set();
+  for (const m of js.matchAll(/classList\.(?:add|toggle|remove)\(\s*["']([\w-]+)["']/g)) ausJs.add(m[1]);
+  /* Der Lookahead schliesst zusammengesetzte Namen aus: bei
+     className: "level-btn lvl-" + stufe ist "lvl-" nur ein Anfang und
+     steht zu Recht nicht als eigene Regel im CSS. */
+  for (const m of js.matchAll(/className:\s*["']([\w -]+)["'](?!\s*\+)/g))
+    m[1].split(/\s+/).filter(Boolean).forEach(c => ausJs.add(c));
+  for (const m of js.matchAll(/className\s*=\s*["']([\w -]+)["'](?!\s*\+)/g))
+    m[1].split(/\s+/).filter(Boolean).forEach(c => ausJs.add(c));
+
+  const fehlend = [...ausJs].filter(c => !inCss.has(c)).sort();
+  if (fehlend.length) E(`Klassen ohne CSS-Regel: ${fehlend.join(', ')}`);
+  else O(`Alle ${ausJs.size} vom Skript gesetzten Klassen sind im CSS definiert`);
+}
+
+/* ---------- 12a3. Gedämpfte Bereiche klappen wirklich zu ---------- */
+if (/muteBox/.test(js)) {
+  if (!/\.muted-box\s*>\s*\*:not\(h3\)[^{]*\{[^}]*display\s*:\s*none/.test(css))
+    E('.muted-box klappt den Inhalt nicht weg – gedämpfte Bereiche blieben in voller Länge stehen');
+  else if (!/\.muted-box\s*>\s*\*:not\(h3\):not\(\.mute-tag\)/.test(css))
+    E('.muted-box blendet auch die eigene Marke aus');
+  else O('Gedämpfte Bereiche zeigen Überschrift und Marke, sonst nichts');
+}
+
 /* ---------- 12b. Versionsnummern stimmen überein ---------- */
 /* Drei Stellen nennen dieselbe Version. Liefen sie auseinander, zeigte
    die App im Store eine andere Nummer als unter "Über FairMix" – und der
