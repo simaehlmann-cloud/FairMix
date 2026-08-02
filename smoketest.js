@@ -2693,6 +2693,288 @@ check('Speicher nutzt nur die vier bekannten Schluessel', () => {
          'unerwartete Speicherschluessel: ' + schluessel.join(', '));
 });
 
+/* ================= Gruppenpuzzle ================= */
+
+/* Hilfsmittel: baut eine Klasse und schaltet das Puzzle frei. */
+function puzzleAufbau(anzahl) {
+  vm.runInContext("originalNames = []; presentNames = []; absentNames = []; teams = []; jigsaw = null;", ctx);
+  for (let i = 1; i <= anzahl; i++) {
+    $('nameInput').value = 'P' + i;
+    g('addName')();
+  }
+  vm.runInContext("features.jigsaw = true; features.roles = false;", ctx);
+}
+
+function themen(n) {
+  const liste = [];
+  for (let i = 1; i <= n; i++) liste.push('Thema ' + i);
+  return liste;
+}
+
+check('Themen einlesen: leere Zeilen, Dubletten und Grenzen', () => {
+  const p = g('parseTopics');
+  assert(p('A\nB\n\n C ').join('|') === 'A|B|C', 'Zeilen: ' + p('A\nB\n\n C ').join('|'));
+  assert(p('A,B;C').length === 3, 'Komma und Semikolon trennen nicht');
+  assert(p('Foto\nfoto').length === 1, 'Dublette nicht erkannt');
+  assert(p('').length === 0 && p(null).length === 0, 'Leereingabe ergibt Themen');
+  assert(p('x\n'.repeat(40)).length === 1, 'gleiche Themen nicht zusammengefasst');
+  let viele = '';
+  for (let i = 0; i < 40; i++) viele += 'T' + i + '\n';
+  assert(p(viele).length === g('JIGSAW_MAX_TOPICS'), 'Obergrenze greift nicht');
+  assert(p('a'.repeat(80))[0].length === 40, 'Themenname nicht gekürzt');
+});
+
+check('Themen einlesen bleibt auch bei langem Text schnell', () => {
+  /* Die Funktion laeuft bei jedem Tastendruck. Wer eine Namensliste in das
+     Themenfeld einfuegt, darf die Eingabe nicht einfrieren. */
+  const p = g('parseTopics');
+  const viele = [];
+  for (let i = 0; i < 5000; i++) viele.push('Thema ' + i);
+  const t0 = Date.now();
+  const raus = p(viele.join('\n'));
+  const ms = Date.now() - t0;
+  assert(raus.length === g('JIGSAW_MAX_TOPICS'), 'Obergrenze: ' + raus.length);
+  assert(ms < 50, '5000 Zeilen brauchten ' + ms + ' ms');
+});
+
+check('Ein Thema darf "constructor" heißen', () => {
+  /* Mit einem gewoehnlichen Objekt als Merkliste gaelte der Name als schon
+     vorhanden und verschwaende. */
+  const raus = g('parseTopics')('constructor\ntoString\nWasser');
+  assert(raus.length === 3, 'erhalten: ' + raus.join('|'));
+});
+
+check('Gruppenpuzzle: jede Person genau einmal in beiden Ansichten', () => {
+  const namen = [];
+  for (let i = 1; i <= 24; i++) namen.push('N' + i);
+  const j = g('buildJigsaw')(namen, themen(4));
+  assert(!j.fehler, 'Fehler: ' + j.fehler);
+  assert(j.home.length === 6, 'Stammgruppen: ' + j.home.length);
+  assert(j.expert.length === 4, 'Expertengruppen: ' + j.expert.length);
+
+  const ausHome   = j.home.reduce((a, gr) => a.concat(gr.map(m => m.name)), []).sort();
+  const ausExpert = j.expert.reduce((a, gr) => a.concat(gr.map(m => m.name)), []).sort();
+  assert(ausHome.join(',') === namen.slice().sort().join(','), 'Stammansicht unvollständig');
+  assert(ausExpert.join(',') === namen.slice().sort().join(','), 'Expertenansicht unvollständig');
+
+  /* Ohne Joker hat jede Stammgruppe jedes Thema genau einmal. */
+  j.home.forEach((gr, i) => {
+    const th = gr.map(m => m.topic).sort();
+    assert(th.join(',') === '0,1,2,3', 'Stammgruppe ' + i + ' hat Themen ' + th.join(','));
+  });
+  j.expert.forEach((gr, th) => {
+    assert(gr.length === 6, 'Expertengruppe ' + th + ' hat ' + gr.length);
+    assert(gr.every(m => m.topic === th), 'falsches Thema in Expertengruppe ' + th);
+  });
+});
+
+check('Joker: Rest wird verteilt, Gruppen bleiben ausgeglichen', () => {
+  const namen = [];
+  for (let i = 1; i <= 26; i++) namen.push('N' + i);
+  const j = g('buildJigsaw')(namen, themen(5));
+  assert(j.home.length === 5, 'Stammgruppen: ' + j.home.length);
+
+  const groessen = j.home.map(gr => gr.length).sort();
+  assert(groessen.join(',') === '5,5,5,5,6', 'Stammgruppengrößen: ' + groessen.join(','));
+
+  const expGroessen = j.expert.map(gr => gr.length).sort();
+  assert(expGroessen.join(',') === '5,5,5,5,6', 'Expertengruppengrößen: ' + expGroessen.join(','));
+
+  /* Der Joker sitzt in einer Stammgruppe, deren Thema damit doppelt ist. */
+  const doppelt = j.home.filter(gr => {
+    const z = {};
+    gr.forEach(m => { z[m.topic] = (z[m.topic] || 0) + 1; });
+    return Object.keys(z).some(k => z[k] > 1);
+  });
+  assert(doppelt.length === 1, 'doppelt besetzte Stammgruppen: ' + doppelt.length);
+});
+
+check('Viele Joker verteilen sich, ohne ein Thema dreifach zu besetzen', () => {
+  /* 19 Namen auf 5 Themen: 3 Stammgruppen, 4 Joker – mehr Joker als Gruppen. */
+  const namen = [];
+  for (let i = 1; i <= 19; i++) namen.push('N' + i);
+  const j = g('buildJigsaw')(namen, themen(5));
+  assert(j.home.length === 3, 'Stammgruppen: ' + j.home.length);
+  j.home.forEach((gr, i) => {
+    const z = {};
+    gr.forEach(m => { z[m.topic] = (z[m.topic] || 0) + 1; });
+    Object.keys(z).forEach(k => {
+      assert(z[k] <= 2, 'Thema ' + k + ' in Stammgruppe ' + i + ' ' + z[k] + '-fach besetzt');
+    });
+  });
+  /* Die Joker gehen reihum: keine Stammgruppe darf zwei mehr haben als
+     eine andere, sonst sitzen vier Kinder in derselben Gruppe. */
+  const gr = j.home.map(x => x.length);
+  assert(Math.max.apply(null, gr) - Math.min.apply(null, gr) <= 1,
+         'Stammgruppengrößen ungleich: ' + gr.join(','));
+  const eg = j.expert.map(x => x.length);
+  assert(Math.max.apply(null, eg) - Math.min.apply(null, eg) <= 1,
+         'Expertengruppengrößen ungleich: ' + eg.join(','));
+
+  const summe = j.expert.reduce((a, x) => a + x.length, 0);
+  assert(summe === 19, 'Expertengruppen fassen ' + summe + ' statt 19');
+});
+
+check('Grenzfälle: zu wenige Themen, zu wenige Namen, genau aufgehend', () => {
+  assert(g('buildJigsaw')(['A', 'B'], ['nur eins']).fehler === 'msgJigsawNeedTopics', 'ein Thema erlaubt');
+  assert(g('buildJigsaw')(['A', 'B'], themen(3)).fehler === 'msgJigsawTooFewNames', 'zu wenige Namen erlaubt');
+
+  const knapp = g('buildJigsaw')(['A', 'B', 'C'], themen(3));
+  assert(!knapp.fehler, 'N gleich T abgelehnt');
+  assert(knapp.home.length === 1, 'Stammgruppen: ' + knapp.home.length);
+  assert(knapp.warnung === 'msgJigsawWarnSmall', 'Warnung bei einer Stammgruppe fehlt');
+
+  const zwei = g('buildJigsaw')(['A', 'B', 'C', 'D'], themen(2));
+  assert(zwei.warnung === null, 'unnötige Warnung bei zwei Stammgruppen');
+});
+
+check('Umschalten zeigt dieselben Personen in anderer Aufteilung', () => {
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'Wasser\nLuft\nErde';
+  g('generateJigsaw')();
+
+  assert(g('jigsawActive')() === true, 'Puzzle nicht aktiv');
+  assert(g('jigsaw').view === 'home', 'startet nicht mit Stammgruppen');
+  assert(g('teams').length === 4, 'Stammgruppen: ' + g('teams').length);
+  assert($('jigsawSwitchRow').hidden === false, 'Umschalter unsichtbar');
+  assert(g('teamLabel')(0).indexOf('Stammgruppe') === 0, 'Beschriftung: ' + g('teamLabel')(0));
+
+  const vorher = g('teams').reduce((a, tm) => a.concat(tm.map(m => m.name)), []).sort().join(',');
+
+  g('switchJigsawView')('expert');
+  assert(g('teams').length === 3, 'Expertengruppen: ' + g('teams').length);
+  assert(g('teamLabel')(0) === 'Wasser', 'Beschriftung: ' + g('teamLabel')(0));
+  const nachher = g('teams').reduce((a, tm) => a.concat(tm.map(m => m.name)), []).sort().join(',');
+  assert(vorher === nachher, 'andere Personen nach dem Umschalten');
+
+  g('switchJigsawView')('home');
+  assert(g('teams').length === 4, 'Rückweg fehlgeschlagen');
+});
+
+check('Das Thema steht an der Person, aber nur in der Stammansicht', () => {
+  g('switchJigsawView')('home');
+  g('renderTeams')();
+  const marken = documentStub.querySelectorAll('.topic-tag');
+  assert(marken.length === 12, 'Themenmarken: ' + marken.length);
+  assert(['Wasser', 'Luft', 'Erde'].indexOf(marken[0].textContent) > -1,
+         'Marke zeigt "' + marken[0].textContent + '"');
+
+  g('switchJigsawView')('expert');
+  g('renderTeams')();
+  assert(documentStub.querySelectorAll('.topic-tag').length === 0,
+         'Themenmarke auch in der Expertenansicht');
+  g('switchJigsawView')('home');
+});
+
+check('Rollen, Regeln und Stufen bleiben beim Puzzle außen vor', () => {
+  vm.runInContext("features.roles = true; activeRoleIds = ['r1','r2']; saveState();", ctx);
+  puzzleAufbau(12);
+  vm.runInContext("features.roles = true;", ctx);
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  assert(g('teams').every(tm => tm.every(m => m.roleId === null)), 'Rolle im Puzzle vergeben');
+});
+
+check('Handeingriff beendet das Puzzle, statt falsche Zuordnungen zu zeigen', () => {
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  assert(g('jigsawActive')() === true, 'Vorbedingung');
+
+  g('deleteSingleName')('P1');
+  assert(g('jigsaw') === null, 'Puzzle nach Namenslöschung noch aktiv');
+  assert(g('teams').length === 4, 'Gruppen sind mit verschwunden');
+
+  g('renderAll')();
+  assert($('jigsawSwitchRow').hidden === true, 'Umschalter bleibt sichtbar');
+});
+
+check('Normale Gruppenbildung beendet das Puzzle', () => {
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  $('teamCount').value = '3'; $('teamSize').value = '';
+  g('generateTeams')();
+  assert(g('jigsaw') === null, 'Puzzle überlebt die normale Gruppenbildung');
+  assert(g('teams').length === 3, 'Gruppen: ' + g('teams').length);
+});
+
+check('Rückgängig stellt das Puzzle mit wieder her', () => {
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  const vorher = JSON.stringify(g('jigsaw'));
+
+  $('teamCount').value = '3'; $('teamSize').value = '';
+  g('generateTeams')();
+  assert(g('jigsaw') === null, 'Vorbedingung');
+
+  g('performUndo')();
+  assert(g('jigsaw') !== null, 'Puzzle nicht zurückgeholt');
+  assert(JSON.stringify(g('jigsaw')) === vorher, 'Puzzle kam verändert zurück');
+});
+
+check('Puzzle übersteht Speichern und Laden', () => {
+  puzzleAufbau(12);
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  g('switchJigsawView')('expert');
+  const vorher = JSON.stringify(g('jigsaw'));
+
+  g('saveState')();
+  vm.runInContext("jigsaw = null;", ctx);
+  g('loadState')();
+  assert(JSON.stringify(g('jigsaw')) === vorher, 'Puzzle nach dem Laden verändert');
+});
+
+check('Beschädigte Puzzle-Daten werden verworfen, nicht übernommen', () => {
+  const gut = g('backupPayload')().state.jigsaw;
+  assert(g('validJigsaw')(gut) === true, 'gültiges Puzzle abgelehnt');
+
+  const langes = 'x'.repeat(200);
+  const kaputt = [
+    null,
+    {},
+    /* Aus einer fremden Sicherung: uebermaessig lang, Steuerzeichen, zu viele */
+    Object.assign({}, gut, { topics: [langes, 'B', 'C'] }),
+    Object.assign({}, gut, { topics: ['A\u0007B', 'B', 'C'] }),
+    /* 25 Themen mit passender Expertenzahl – sonst schlaegt schon die
+       Laengenpruefung an und die Obergrenze bliebe unbelegt. */
+    Object.assign({}, gut, {
+      topics: Array.from({ length: 25 }, (_, i) => 'T' + i),
+      expert: Array.from({ length: 25 }, () => []),
+      home:   [[]]
+    }),
+    Object.assign({}, gut, { view: 'irgendwas' }),
+    Object.assign({}, gut, { topics: ['nur eins'] }),
+    Object.assign({}, gut, { expert: [] }),
+    Object.assign({}, gut, { home: [[{ name: 'X', topic: 99 }]] }),
+    Object.assign({}, gut, { home: [[{ topic: 0 }]] }),
+    /* Beide Ansichten strukturell gueltig, aber mit verschiedenen
+       Kopfzahlen – der Umschalter zeigte sonst zwei verschiedene Klassen. */
+    Object.assign({}, gut, { home: gut.home.slice(0, 1) })
+  ];
+  kaputt.forEach((k, i) => {
+    assert(g('validJigsaw')(k) === false, 'Fall ' + i + ' fälschlich akzeptiert');
+  });
+
+  /* Aus einer Sicherung mit kaputtem Puzzle bleiben die Namen erhalten. */
+  const datei = g('backupPayload')();
+  datei.state.jigsaw = { topics: ['A'], view: 'home', home: [], expert: [] };
+  assert(g('importDataFromObject')(datei) === true, 'Import abgelehnt');
+  assert(g('jigsaw') === null, 'kaputtes Puzzle übernommen');
+  assert(g('originalNames').length === 12, 'Namen verloren: ' + g('originalNames').length);
+});
+
+check('Vorschau nennt Stammgruppen, Expertengruppen und Joker', () => {
+  const v = g('jigsawPreviewText');
+  assert(/5.*Stammgruppen.*4.*Expertengruppen/.test(v(20, themen(4))), 'ohne Joker: ' + v(20, themen(4)));
+  assert(/Joker/.test(v(22, themen(4))), 'Joker fehlt: ' + v(22, themen(4)));
+  assert(!/Joker/.test(v(20, themen(4))), 'Joker fälschlich genannt');
+  assert(v(3, themen(4)) === g('t')('previewJigsawTooFew'), 'zu wenige Namen: ' + v(3, themen(4)));
+  assert(v(20, themen(1)) === g('t')('previewJigsawNeedTopics'), 'ein Thema: ' + v(20, themen(1)));
+});
+
 /* ================= Pro: Umstieg von Lite ================= */
 
 check('In Pro sperrt LITE_LOCKED nichts', () => {

@@ -557,6 +557,17 @@ body.dark-mode .timer-box.running .timer-clock { color: #58c98a; }
   border-radius: 999px; background: #d99b00; color: #1a1a24;
   font-size: 12px; font-weight: 700;
 }
+/* Themenmarke im Gruppenpuzzle. Bewusst als Text und nicht als Symbol:
+   die Themen kommen von der Lehrkraft und haben kein Piktogramm. */
+.topic-tag {
+  flex: 0 0 auto; max-width: 45%;
+  padding: 2px 9px; border-radius: 999px;
+  background: var(--accent-soft, #dbe9ff); color: var(--accent-strong, #003366);
+  font-size: 13px; font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dark-mode .topic-tag { background: #16324f; color: #cfe4ff; }
+.topic-badge { font-size: 0.55em; font-weight: 700; }
 .lite-list { text-align: left; margin: 0 0 var(--sp-4); padding-left: 22px; }
 .lite-list li { margin: 6px 0; line-height: 1.45; }
 .feature-row input[type="checkbox"] {
@@ -902,6 +913,15 @@ body.dark-mode .text-link { color: var(--border-color); }
   <p class="hint" data-i18n="hintLevelWhere">Die Stufen selbst vergibst du unter „Namen verwalten“.</p>
   </div>
 
+  <div id="featureJigsaw">
+  <h3 data-i18n="titleJigsaw">Gruppenpuzzle</h3>
+  <p class="hint" data-i18n="hintJigsaw">Ein Thema je Zeile. Jede Stammgruppe bekommt einen Kopf pro Thema, die Expertengruppen sammeln alle zum selben Thema.</p>
+  <textarea id="jigsawTopics" rows="4" placeholder="Thema 1&#10;Thema 2&#10;Thema 3" data-i18n-placeholder="placeholderJigsawTopics" oninput="updateJigsawPreview()"></textarea>
+  <p id="jigsawPreview" class="hint" aria-live="polite"></p>
+  <button class="btn green" onclick="generateJigsaw()" data-i18n="btnJigsaw">Gruppenpuzzle bilden</button>
+  <p class="hint" data-i18n="hintJigsawLocked">Regeln, fixierte Personen und Stufen bleiben beim Gruppenpuzzle außen vor – die Themen bestimmen die Zusammensetzung.</p>
+  </div>
+
   <div id="featurePartners">
   <h3 data-i18n="titlePartners">Partnerhistorie</h3>
   <p class="hint" data-i18n="hintPartners">Die App merkt sich, wer schon mit wem in einer Gruppe war, und meidet diese Paare bei der nächsten Ziehung. Regeln, fixierte Personen und die Stufenmischung haben Vorrang.</p>
@@ -930,6 +950,10 @@ body.dark-mode .text-link { color: var(--border-color); }
   </div>
 
   <h3 data-i18n="titleCreatedTeams">Erstellte Gruppen</h3>
+  <div id="jigsawSwitchRow" class="btn-row" hidden>
+    <button id="jigsawViewHome"   class="btn blue" onclick="switchJigsawView('home')"   data-i18n="btnJigsawHome">Stammgruppen</button>
+    <button id="jigsawViewExpert" class="btn blue" onclick="switchJigsawView('expert')" data-i18n="btnJigsawExpert">Expertengruppen</button>
+  </div>
   <div id="teamsContainer" class="export-container"></div>
 
   <div class="btn-row">
@@ -1078,7 +1102,7 @@ body.dark-mode .text-link { color: var(--border-color); }
 /* =================================================================
    FairMix Pro
    ================================================================= */
-const APP_VERSION = "1.20.0";
+const APP_VERSION = "1.21.0";
 
 /* -------------------------------------------------
    0  Fassung: Lite oder Pro
@@ -1092,7 +1116,7 @@ const IS_LITE = false;
 
 /* Funktionen, die Lite nicht anbietet. "data" steuert nur den Import –
    der Export bleibt in beiden Fassungen erreichbar, siehe canExport(). */
-const LITE_LOCKED = ['roles', 'fixed', 'rules', 'levels', 'partners', 'classes', 'data'];
+const LITE_LOCKED = ['roles', 'fixed', 'rules', 'levels', 'partners', 'jigsaw', 'classes', 'data'];
 
 /* Ziel des Umstiegs-Knopfes. Bewusst als Zeichenkette im Skript und nicht
    als href im Markup: die App darf keine externen Ressourcen laden. */
@@ -1182,7 +1206,26 @@ const i18n = {
     btnExportForMove: "Namen jetzt exportieren",
     btnOpenStore: "FairMix Pro im Play Store öffnen",
     msgStoreFailed: "Der Play Store ließ sich nicht öffnen. Suche dort nach „FairMix Pro“.",
-    aboutLite: "Du nutzt FairMix Lite. Namen verwalten, ziehen und Gruppen bilden – manuell wie zufällig – sind vollständig enthalten und bleiben kostenlos. Rollen, fixierte Personen, Regeln, Stufen, Partnerhistorie, mehrere Klassen und der Import gehören zu FairMix Pro. Der Export ist auch hier frei: deine Namen gehören dir.",
+    aboutLite: "Du nutzt FairMix Lite. Namen verwalten, ziehen und Gruppen bilden – manuell wie zufällig – sind vollständig enthalten und bleiben kostenlos. Welche Funktionen zu FairMix Pro gehören, zeigt dir der Knopf darunter. Der Export ist auch hier frei: deine Namen gehören dir.",
+    featJigsaw: "Gruppenpuzzle",
+    featJigsawHint: "Stamm- und Expertengruppen nach Themen bilden",
+    titleJigsaw: "Gruppenpuzzle",
+    hintJigsaw: "Ein Thema je Zeile. Jede Stammgruppe bekommt einen Kopf pro Thema, die Expertengruppen sammeln alle zum selben Thema.",
+    hintJigsawLocked: "Regeln, fixierte Personen und Stufen bleiben beim Gruppenpuzzle außen vor – die Themen bestimmen die Zusammensetzung.",
+    placeholderJigsawTopics: "Thema 1\nThema 2\nThema 3",
+    btnJigsaw: "Gruppenpuzzle bilden",
+    btnJigsawHome: "Stammgruppen",
+    btnJigsawExpert: "Expertengruppen",
+    jigsawHome: "Stammgruppe",
+    previewJigsawHome: "Stammgruppen",
+    previewJigsawExpert: "Expertengruppen",
+    previewJigsawJoker: "Joker (Thema doppelt besetzt)",
+    previewJigsawNeedTopics: "Mindestens zwei Themen eingeben.",
+    previewJigsawTooFew: "Weniger Namen als Themen – so lässt sich keine Stammgruppe füllen.",
+    msgJigsawNeedTopics: "Gib mindestens zwei Themen ein, je eines pro Zeile.",
+    msgJigsawTooFewNames: "Es sind weniger Namen als Themen da. Nimm weniger Themen oder hol Abwesende zurück.",
+    msgJigsawWarnSmall: "Es reicht nur für eine Stammgruppe – jede Expertengruppe hätte eine Person. Nimm weniger Themen.",
+    msgJigsawDone: "Gruppenpuzzle gebildet.",
     titleDemo: "Erst einmal ausprobieren?",
     hintDemo: "Lädt eine Beispielklasse mit 24 Namen, Stufen und zwei Regeln. So siehst du alles in Aktion, ohne etwas zu tippen.",
     btnLoadDemo: "Beispielklasse laden",
@@ -1397,7 +1440,7 @@ const i18n = {
 
     aboutTitle: "Über FairMix",
     aboutP1: "FairMix Pro ist ein Werkzeug für alle, die regelmäßig Gruppen einteilen müssen: Lehrkräfte und Kursleitende ebenso wie Trainerinnen und Trainer im Sport, Leitungen von Jugend- und Ferienfreizeiten, Chorleitungen, Ehrenamtliche in der Vereinsarbeit oder Teamverantwortliche in Unternehmen. Überall dort, wo aus einer Namensliste schnell und nachvollziehbar faire Gruppen entstehen sollen, spart FairMix Zeit und Diskussionen.",
-    aboutP2: "Gruppen lassen sich von Hand zusammenstellen oder automatisch erzeugen – nach Anzahl der Gruppen oder nach gewünschter Gruppengröße. Einzelne Personen können gezielt auf verschiedene Gruppen verteilt werden, und Regeln legen fest, wer immer zusammen und wer nie zusammen landen soll. Wer doch noch wechseln muss, wird einfach per Fingerdruck in eine andere Gruppe gezogen.",
+    aboutP2: "Gruppen lassen sich von Hand zusammenstellen oder automatisch erzeugen – nach Anzahl der Gruppen oder nach gewünschter Gruppengröße. Einzelne Personen können gezielt auf verschiedene Gruppen verteilt werden, und Regeln legen fest, wer immer zusammen und wer nie zusammen landen soll. Wer doch noch wechseln muss, wird einfach per Fingerdruck in eine andere Gruppe gezogen. Für das Gruppenpuzzle genügt es, die Themen einzugeben: FairMix bildet daraus Stammgruppen mit einem Kopf pro Thema und die passenden Expertengruppen, und ein Umschalter wechselt zwischen beiden Ansichten.",
     aboutP3: "Genauso wichtig ist das Ziehen selbst: FairMix wählt einzelne Namen zufällig aus – etwa wer als Nächstes an die Reihe kommt oder eine Aufgabe übernimmt – und merkt sich dabei, wer bisher wie oft dran war, sodass niemand dauerhaft übergangen wird. Auch ganze Gruppen lassen sich ziehen. Das eignet sich besonders für die Reihenfolge von Präsentationen, für Spielrunden oder für die Verteilung von Stationen. Bereits gezogene Gruppen werden markiert und erst nach dem Zurücksetzen wieder berücksichtigt.",
     aboutP4: "Ergänzend gibt es ein Rollensystem. Rollen wie Moderator, Zeitwächter oder Sprecher strukturieren die Zusammenarbeit und geben jedem Mitglied eine klare Aufgabe. Eigene Rollen lassen sich jederzeit hinzufügen. Für die Anzeige an Beamer oder Whiteboard gibt es einen Präsentationsmodus mit großer Schrift, und jede Einteilung kann als Bild gespeichert und geteilt werden.",
     aboutP5: "Dabei bleibt alles auf dem Gerät: FairMix läuft vollständig lokal und offline, ohne Konto, ohne Werbung und ohne Übermittlung an externe Server. Einfach, sicher und fair – im Klassenraum genauso wie in der Turnhalle."
@@ -1483,7 +1526,26 @@ const i18n = {
     btnExportForMove: "Export names now",
     btnOpenStore: "Open FairMix Pro in the Play Store",
     msgStoreFailed: "The Play Store would not open. Search there for \u201cFairMix Pro\u201d.",
-    aboutLite: "You are using FairMix Lite. Managing names, drawing, and building groups \u2013 by hand or at random \u2013 are fully included and stay free. Roles, fixed persons, rules, levels, partner history, several classes and the import belong to FairMix Pro. The export is free here too: your names are yours.",
+    aboutLite: "You are using FairMix Lite. Managing names, drawing, and building groups \u2013 by hand or at random \u2013 are fully included and stay free. The button below shows which features belong to FairMix Pro. The export is free here too: your names are yours.",
+    featJigsaw: "Jigsaw method",
+    featJigsawHint: "Build home and expert groups from topics",
+    titleJigsaw: "Jigsaw method",
+    hintJigsaw: "One topic per line. Every home group gets one person per topic; each expert group collects everyone on the same topic.",
+    hintJigsawLocked: "Rules, fixed persons and levels stay out of the jigsaw \u2013 the topics decide who goes where.",
+    placeholderJigsawTopics: "Topic 1\nTopic 2\nTopic 3",
+    btnJigsaw: "Build jigsaw groups",
+    btnJigsawHome: "Home groups",
+    btnJigsawExpert: "Expert groups",
+    jigsawHome: "Home group",
+    previewJigsawHome: "home groups",
+    previewJigsawExpert: "expert groups",
+    previewJigsawJoker: "joker(s) (topic covered twice)",
+    previewJigsawNeedTopics: "Enter at least two topics.",
+    previewJigsawTooFew: "Fewer names than topics \u2013 not even one home group can be filled.",
+    msgJigsawNeedTopics: "Enter at least two topics, one per line.",
+    msgJigsawTooFewNames: "There are fewer names than topics. Use fewer topics or bring absentees back.",
+    msgJigsawWarnSmall: "That is only enough for one home group \u2013 each expert group would have one person. Use fewer topics.",
+    msgJigsawDone: "Jigsaw groups created.",
     titleDemo: "Want to try it out first?",
     hintDemo: "Loads a sample class with 24 names, levels and two rules. That way you can see everything in action without typing anything.",
     btnLoadDemo: "Load sample class",
@@ -1698,7 +1760,7 @@ const i18n = {
 
     aboutTitle: "About FairMix",
     aboutP1: "FairMix Pro is a tool for everyone who regularly has to divide people into groups: teachers and course instructors as well as sports coaches, leaders of youth and holiday camps, choir directors, volunteers in clubs and associations, or team leads in companies. Wherever fair, transparent groups need to emerge quickly from a list of names, FairMix saves time and arguments.",
-    aboutP2: "Groups can be put together by hand or generated automatically – either by number of groups or by desired group size. Individual people can be spread deliberately across the groups, and rules define who should always end up together and who never should. Anyone who still needs to move is simply dragged into another group.",
+    aboutP2: "Groups can be put together by hand or generated automatically – either by number of groups or by desired group size. Individual people can be spread deliberately across the groups, and rules define who should always end up together and who never should. Anyone who still needs to move is simply dragged into another group. For the jigsaw method it is enough to enter the topics: FairMix builds home groups with one person per topic plus the matching expert groups, and a switch moves between the two views.",
     aboutP3: "Drawing at random matters just as much: FairMix picks individual names – for instance who goes next or who takes on a task – and remembers how often each person has been picked, so nobody is passed over for long. Whole groups can be drawn too. That works well for the running order of presentations, for rounds of a game, or for handing out stations. Groups already drawn are marked and only return after a reset.",
     aboutP4: "A role system rounds this off. Roles such as moderator, timekeeper or presenter structure the collaboration and give every member a clear task. You can add your own roles at any time. For projectors and whiteboards there is a presentation mode with large type, and every arrangement can be saved and shared as an image.",
     aboutP5: "Everything stays on the device: FairMix runs entirely locally and offline, with no account, no advertising and no transmission to external servers. Simple, safe and fair – in the classroom just as much as in the gym."
@@ -1771,6 +1833,14 @@ let presentNames  = [];
 let absentNames   = [];
 let groups        = {};
 let teams         = [];
+/* Gruppenpuzzle. null heisst: kein Puzzle aktiv.
+   { topics: [String], view: 'home'|'expert',
+     home:   [[{ name, topic }]],   Stammgruppen, ein Kopf je Thema
+     expert: [[{ name, topic }]] }  Expertengruppen, eine je Thema
+   Beide Ansichten halten dieselben Personen. Angezeigt wird immer nur
+   eine – sie wird nach teams gespiegelt, damit Darstellung, Ziehen,
+   Praesentation und Export unveraendert weiterlaufen. */
+let jigsaw        = null;
 let teamNames     = [];
 let fixedPersons  = [];
 let pairRules     = { together: [], apart: [] };
@@ -1798,7 +1868,7 @@ let lastBackup    = 0;           /* Zeitpunkt des letzten Exports, 0 = nie */
 let backupNagOff  = false;       /* Erinnerung dauerhaft abgeschaltet */
 /* Die App startet bewusst schlank: Zusatzbereiche sind zunächst aus,
    damit die Startseite niemanden überfordert. */
-const FEATURE_DEFAULTS = { roles: false, fixed: false, rules: false, levels: false, partners: false, classes: true, data: true };
+const FEATURE_DEFAULTS = { roles: false, fixed: false, rules: false, levels: false, partners: false, jigsaw: false, classes: true, data: true };
 let features      = Object.assign({}, FEATURE_DEFAULTS);
 
 const LEVEL_LABELS = ["", "A", "B", "C"];
@@ -1816,6 +1886,7 @@ const FEATURES = [
   { key: 'rules', label: 'featRules', hint: 'featRulesHint' },
   { key: 'levels', label: 'featLevels', hint: 'featLevelsHint' },
   { key: 'partners', label: 'featPartners', hint: 'featPartnersHint' },
+  { key: 'jigsaw', label: 'featJigsaw', hint: 'featJigsawHint' },
   { key: 'classes', label: 'featClasses', hint: 'featClassesHint' },
   { key: 'data',  label: 'featData',  hint: 'featDataHint'  }
 ];
@@ -1868,7 +1939,7 @@ function roleDesc(r) { return typeof r.desc === 'object' ? (r.desc[currentLang] 
 
 function saveState() {
   const state = {
-    originalNames, presentNames, absentNames, groups, teams, teamNames,
+    originalNames, presentNames, absentNames, groups, teams, teamNames, jigsaw,
     fixedPersons, customRoles, activeRoleIds, drawnGroups, pairRules, drawCounts, pairHistory, features,
     currentClass,
     levels, levelMode, drawStyle, fairDraw, lastBackup, backupNagOff,
@@ -1954,11 +2025,46 @@ function loadState() {
         : [];
     });
     teams = teams.map(x => Array.isArray(x) ? x.filter(m => m && typeof m.name === "string") : []);
+
+    /* Das Puzzle kommt aus derselben Datei wie alles andere und kann aus
+       einer fremden Sicherung stammen. Haelt es der Pruefung nicht stand,
+       wird es verworfen – die Gruppen selbst bleiben erhalten. */
+    jigsaw = validJigsaw(s.jigsaw) ? s.jigsaw : null;
   }
 
   const stored = localStorage.getItem("fairmix_theme");
   themeMode = (stored === "dark" || stored === "light" || stored === "auto") ? stored : "auto";
   applyTheme();
+}
+
+/* Struktur eines gespeicherten Puzzles pruefen. Ein Themenindex, der ins
+   Leere zeigt, liesse die Expertenansicht spaeter abstuerzen. */
+function validJigsaw(j) {
+  if (!j || typeof j !== "object") return false;
+  if (!Array.isArray(j.topics) || j.topics.length < 2) return false;
+  if (j.topics.length > JIGSAW_MAX_TOPICS) return false;
+  /* Themen aus einer fremden Sicherung durchlaufen dieselbe Saeuberung
+     wie eigene Eingaben. Ohne das koennte eine praeparierte Datei ein
+     Thema mit 100000 Zeichen oder Steuerzeichen mitbringen – ungefaehrlich
+     fuer die Anzeige, weil ueberall textContent benutzt wird, aber genug,
+     um Liste und Praesentation unbrauchbar zu machen. */
+  if (!j.topics.every(x => typeof x === "string" &&
+        x.length > 0 && x.length <= NAME_MAX_LEN &&
+        !/[\u0000-\u001F\u007F]/.test(x))) return false;
+  if (j.view !== 'home' && j.view !== 'expert') return false;
+  if (!Array.isArray(j.home) || !j.home.length) return false;
+  if (!Array.isArray(j.expert) || j.expert.length !== j.topics.length) return false;
+
+  const gueltig = g => Array.isArray(g) && g.every(m =>
+    m && typeof m.name === "string" && Number.isInteger(m.topic) &&
+    m.topic >= 0 && m.topic < j.topics.length);
+
+  if (!j.home.every(gueltig) || !j.expert.every(gueltig)) return false;
+
+  /* Beide Ansichten muessen dieselben Personen enthalten, sonst zeigte der
+     Umschalter zwei verschiedene Klassen. */
+  const zaehle = liste => liste.reduce((n, g) => n + g.length, 0);
+  return zaehle(j.home) === zaehle(j.expert);
 }
 
 function systemPrefersDark() {
@@ -2113,6 +2219,8 @@ function updateSettingsUI() {
   mark("choiceThemeDark",  themeMode === "dark");
   mark("choiceDrawTicker", drawStyle === "ticker");
   mark("choiceDrawWheel",  drawStyle === "wheel");
+  mark("jigsawViewHome",   jigsawActive() && jigsaw.view === 'home');
+  mark("jigsawViewExpert", jigsawActive() && jigsaw.view === 'expert');
   mark("choiceLevelOff",    levelMode === "off");
   mark("choiceLevelHetero", levelMode === "hetero");
   mark("choiceLevelHomo",   levelMode === "homo");
@@ -2251,6 +2359,8 @@ function applyFeatureVisibility() {
   set("featureRules", featureOn('rules'));
   set("featureLevels", featureOn('levels'));
   set("featurePartners", featureOn('partners'));
+  set("featureJigsaw",   featureOn('jigsaw'));
+  set("jigsawSwitchRow", jigsawActive());
   set("settingsExport",  canExport());
   set("settingsBackup",  canImport());
   set("liteExportHint",  IS_LITE);
@@ -2269,6 +2379,7 @@ function renderAll() {
   updateClassBar();
   updatePartnerStatus();
   updateTeamPreview();
+  updateJigsawPreview();
   renderFeatureList();
   updateSettingsUI();
   renderNameList();
@@ -2400,7 +2511,7 @@ let undoTimer = null;
 
 function takeSnapshot() {
   return JSON.parse(JSON.stringify({
-    originalNames, presentNames, absentNames, groups, teams, teamNames,
+    originalNames, presentNames, absentNames, groups, teams, teamNames, jigsaw,
     fixedPersons, pairRules, drawCounts, drawnGroups, levels, pairHistory
   }));
 }
@@ -2427,6 +2538,9 @@ function performUndo() {
   groups        = snap.groups;
   teams         = snap.teams;
   teamNames     = snap.teamNames;
+  /* Ohne diese Zeile bliebe nach dem Zurueckgehen der Umschalter stehen,
+     waehrend teams schon den alten Stand zeigte. */
+  jigsaw        = validJigsaw(snap.jigsaw) ? snap.jigsaw : null;
   fixedPersons  = snap.fixedPersons;
   pairRules     = snap.pairRules;
   drawCounts    = snap.drawCounts;
@@ -2479,6 +2593,9 @@ function openPresentation(mode) {
     c.members.forEach(m => {
       const li = el("li");
       li.appendChild(el("span", { text: m.name }));
+      if (jigsawActive() && jigsaw.view === 'home' && Number.isInteger(m.topic)) {
+        li.appendChild(el("span", { className: "role-badge topic-badge", text: jigsaw.topics[m.topic] }));
+      }
       const r = (featureOn('roles') && m.roleId) ? getRoleById(m.roleId) : null;
       /* Auf der Wand zählt Ruhe: nur das Symbol. Der Name der Rolle steht
          weiterhin auf den Bearbeitungsseiten und im Vorlesetext. */
@@ -2945,9 +3062,11 @@ function exportAsImage(mode) {
       let ry = y + CARD_PAD + TITLE_H;
       c.members.forEach(m => {
         const role = (featureOn('roles') && m.roleId) ? getRoleById(m.roleId) : null;
+        const thema = (jigsawActive() && jigsaw.view === 'home' && Number.isInteger(m.topic))
+                      ? jigsaw.topics[m.topic] : null;
         let badgeW = 0, badgeLabel = "";
-        if (role) {
-          badgeLabel = role.icon + " " + roleName(role);
+        if (role || thema) {
+          badgeLabel = thema ? thema : (role.icon + " " + roleName(role));
           ctx.font = "700 14px " + FONT;
           badgeW = Math.min(170, ctx.measureText(badgeLabel).width + 18);
         }
@@ -2958,7 +3077,7 @@ function exportAsImage(mode) {
         const nameW = CARD_W - CARD_PAD * 2 - (badgeW ? badgeW + 12 : 0);
         ctx.fillText(fitText(ctx, m.name, nameW), x + CARD_PAD, ry + ROW_H / 2 - 4);
 
-        if (role) {
+        if (badgeLabel) {
           const bx = x + CARD_W - CARD_PAD - badgeW;
           const by = ry + ROW_H / 2 - 17;
           ctx.fillStyle = C.badgeBg;
@@ -3176,6 +3295,7 @@ function availableNames() {
 function removeFromGroupsAndTeams(name) {
   Object.keys(groups).forEach(g => { groups[g] = groups[g].filter(m => m.name !== name); });
   teams = teams.map(tm => tm.filter(m => m.name !== name));
+  endJigsaw();
 }
 
 function addName() {
@@ -3261,7 +3381,7 @@ function deleteAllNames() {
     if (!ok) return;
     pushUndo();
     originalNames = []; presentNames = []; absentNames = [];
-    fixedPersons = []; groups = {}; teams = []; teamNames = [];
+    fixedPersons = []; groups = {}; teams = []; teamNames = []; jigsaw = null;
     pairRules = { together: [], apart: [] };
     drawCounts = {};
     pairHistory = {};
@@ -3389,7 +3509,7 @@ function importCSV() {
     const apply = () => {
       pushUndo();
       originalNames = [...names]; presentNames = [...names]; absentNames = [];
-      fixedPersons = []; groups = {}; teams = []; teamNames = [];
+      fixedPersons = []; groups = {}; teams = []; teamNames = []; jigsaw = null;
       pairRules = { together: [], apart: [] };
       drawCounts = {};
       pairHistory = {};
@@ -3541,7 +3661,7 @@ function applyClassEntry(name, snapshot) {
   originalNames = [...entry.original];
   absentNames   = Array.isArray(entry.absent)  ? [...entry.absent]  : [];
   presentNames  = Array.isArray(entry.present) ? [...entry.present] : [...entry.original];
-  groups = {}; teams = []; teamNames = [];
+  groups = {}; teams = []; teamNames = []; jigsaw = null;
   drawnGroups = { manual: [], auto: [] };
   /* Stufen, Regeln, fixierte Personen und Ziehungshistorie gehören zur Lerngruppe,
      nicht zur App. Ältere Einträge ohne diese Felder verhalten sich wie bisher. */
@@ -3968,6 +4088,179 @@ function resetManualGroups() {
 }
 
 /* -------------------------------------------------
+   18b  Gruppenpuzzle
+   ------------------------------------------------- */
+const JIGSAW_MAX_TOPICS = 20;
+
+/* Aus einem Textfeld eine Themenliste machen: eine Zeile je Thema,
+   Komma und Semikolon gelten ebenfalls als Trenner. Doppelte Themen
+   werden verworfen – zwei gleich benannte Expertengruppen waeren im
+   Klassenraum nicht auseinanderzuhalten. */
+function parseTopics(text) {
+  const roh = String(text === undefined || text === null ? "" : text).split(/[\n,;]+/);
+  const raus = [];
+  /* Object.create(null) statt {} und statt einer Suche mit some(): die
+     Suche wurde mit jeder Zeile teurer, und weil die Funktion bei jedem
+     Tastendruck laeuft, fror die Eingabe beim Einfuegen langer Texte ein.
+     Ohne Prototyp, damit ein Thema namens "constructor" nicht faelschlich
+     als schon vorhanden gilt. */
+  const gesehen = Object.create(null);
+  for (let i = 0; i < roh.length && raus.length < JIGSAW_MAX_TOPICS; i++) {
+    const s = roh[i].replace(/[\u0000-\u001F\u007F]/g, "").trim()
+                    .replace(/\s+/g, " ").slice(0, NAME_MAX_LEN);
+    if (!s) continue;
+    const schluessel = s.toLowerCase();
+    if (gesehen[schluessel]) continue;
+    gesehen[schluessel] = true;
+    raus.push(s);
+  }
+  return raus;
+}
+
+/* Reine Rechnung, ohne Oberflaeche und ohne Seiteneffekt ausser dem
+   Mischen. N Namen, T Themen:
+     Stammgruppen  S = floor(N / T), jede mit einem Kopf je Thema
+     Joker         R = N - S*T, sie besetzen ein Thema doppelt
+     Expertengruppe je Thema hat S oder S+1 Koepfe */
+/* Einzige Stelle, an der die Aufteilung gerechnet wird. Vorschau und
+   Ergebnis muessen sich decken – zwei getrennte Formeln liefen frueher
+   oder spaeter auseinander. */
+function jigsawCounts(anzahlNamen, anzahlThemen) {
+  const S = Math.floor(anzahlNamen / anzahlThemen);
+  return { home: S, expert: anzahlThemen, joker: anzahlNamen - S * anzahlThemen };
+}
+
+function buildJigsaw(namen, themen) {
+  const T = themen.length;
+  const N = namen.length;
+  if (T < 2) return { fehler: 'msgJigsawNeedTopics' };
+  if (N < T) return { fehler: 'msgJigsawTooFewNames' };
+
+  const S = jigsawCounts(N, T).home;
+  const misch = shuffle([...namen]);
+  const home = Array.from({ length: S }, () => []);
+
+  for (let i = 0; i < S; i++) {
+    for (let th = 0; th < T; th++) home[i].push({ name: misch[i * T + th], topic: th });
+  }
+
+  /* Die Joker reihum auf die Stammgruppen, damit die gleich gross
+     bleiben; innerhalb der Gruppe auf das bisher kleinste Thema, damit
+     auch die Expertengruppen gleich gross bleiben. Ein drittes Mal
+     dasselbe Thema in einer Stammgruppe wird vermieden, solange es geht. */
+  const proThema = [];
+  for (let th = 0; th < T; th++) proThema.push(S);
+
+  for (let j = S * T; j < N; j++) {
+    const gi = (j - S * T) % S;
+    const belegt = [];
+    for (let th = 0; th < T; th++) belegt.push(0);
+    home[gi].forEach(m => { belegt[m.topic]++; });
+
+    const reihe = [];
+    for (let th = 0; th < T; th++) reihe.push(th);
+    reihe.sort((a, b) => proThema[a] - proThema[b] || a - b);
+
+    let gewaehlt = -1;
+    for (let k = 0; k < reihe.length; k++) {
+      if (belegt[reihe[k]] < 2) { gewaehlt = reihe[k]; break; }
+    }
+    if (gewaehlt === -1) gewaehlt = reihe[0];
+
+    home[gi].push({ name: misch[j], topic: gewaehlt });
+    proThema[gewaehlt]++;
+  }
+
+  const expert = Array.from({ length: T }, () => []);
+  home.forEach(g => g.forEach(m => expert[m.topic].push({ name: m.name, topic: m.topic })));
+
+  return {
+    topics: themen.slice(),
+    view: 'home',
+    home: home,
+    expert: expert,
+    /* Bei einer einzigen Stammgruppe bestuende jede Expertengruppe aus
+       genau einer Person. Rechnerisch gueltig, didaktisch sinnlos. */
+    warnung: S < 2 ? 'msgJigsawWarnSmall' : null
+  };
+}
+
+function jigsawTopicInput() {
+  const feld = document.getElementById("jigsawTopics");
+  return feld ? feld.value : "";
+}
+
+/* Zeigt vor dem Klick, was herauskommt – dieselbe Rechnung wie im
+   Algorithmus, damit Vorschau und Ergebnis nicht auseinanderlaufen. */
+function jigsawPreviewText(anzahlNamen, themen) {
+  const T = themen.length, N = anzahlNamen;
+  if (T < 2) return t('previewJigsawNeedTopics');
+  if (N < T) return t('previewJigsawTooFew');
+  const z = jigsawCounts(N, T);
+  let text = z.home + " " + t('previewJigsawHome') + " · " + z.expert + " " + t('previewJigsawExpert');
+  if (z.joker > 0) text += " · " + z.joker + " " + t('previewJigsawJoker');
+  if (z.home < 2) text += " – " + t('msgJigsawWarnSmall');
+  return text;
+}
+
+function updateJigsawPreview() {
+  const feld = document.getElementById("jigsawPreview");
+  if (!feld) return;
+  const themen = parseTopics(jigsawTopicInput());
+  feld.textContent = themen.length ? jigsawPreviewText(presentNames.length, themen) : "";
+}
+
+function generateJigsaw() {
+  if (isAnimating) return;
+  const themen = parseTopics(jigsawTopicInput());
+  const alle = [...presentNames];
+  if (!alle.length) return notify(t('msgNoNames'), true);
+
+  const ergebnis = buildJigsaw(alle, themen);
+  if (ergebnis.fehler) return notify(t(ergebnis.fehler), true);
+
+  pushUndo();
+  jigsaw = ergebnis;
+  applyJigsawView();
+  saveState();
+  renderAll();
+  notify(ergebnis.warnung ? t(ergebnis.warnung) : t('msgJigsawDone'), !!ergebnis.warnung);
+}
+
+/* Spiegelt die gewaehlte Ansicht nach teams. Ab hier weiss der Rest der
+   App nichts vom Puzzle – er sieht nur Gruppen wie sonst auch. */
+function applyJigsawView() {
+  if (!jigsaw) return;
+  const quelle = jigsaw.view === 'expert' ? jigsaw.expert : jigsaw.home;
+  teams = quelle.map(g => g.map(m => ({ name: m.name, roleId: null, topic: m.topic })));
+  teamNames = jigsaw.view === 'expert'
+    ? jigsaw.topics.slice()
+    : jigsaw.home.map((_, i) => t('jigsawHome') + " " + (i + 1));
+  drawnGroups.auto = [];
+}
+
+function switchJigsawView(ansicht) {
+  if (!jigsaw || jigsaw.view === ansicht) return;
+  jigsaw.view = ansicht;
+  applyJigsawView();
+  saveState();
+  renderAll();
+}
+
+/* Sobald jemand von Hand in die Gruppen eingreift, stimmen Stamm- und
+   Expertenansicht nicht mehr ueberein: wer aus einer Stammgruppe fliegt,
+   steht in seiner Expertengruppe noch drin. Statt still eine falsche
+   Zuordnung anzuzeigen, endet das Puzzle – die Gruppen bleiben stehen,
+   nur der Umschalter verschwindet. */
+function endJigsaw() {
+  if (!jigsaw) return false;
+  jigsaw = null;
+  return true;
+}
+
+function jigsawActive() { return !!jigsaw && featureOn('jigsaw'); }
+
+/* -------------------------------------------------
    19  Automatische Gruppen
    ------------------------------------------------- */
 function resetTeams() {
@@ -3977,6 +4270,7 @@ function resetTeams() {
     pushUndo();
     teams = [];
     teamNames = [];
+    jigsaw = null;
     drawnGroups.auto = [];
     saveState();
     renderAll();
@@ -4242,6 +4536,7 @@ function generateTeams() {
 
   const hatteGruppen = teams.length > 0;
   pushUndo();
+  endJigsaw();
 
   /* Abgeschaltete Funktionen fließen nicht in die Berechnung ein */
   const rules  = featureOn('rules') ? pairRules : { together: [], apart: [] };
@@ -5004,6 +5299,13 @@ function renderTeams() {
 
       row.appendChild(handle);
       row.appendChild(nameSpan);
+
+      /* In der Stammgruppe hat jeder ein anderes Thema – ohne diese
+         Marke wuesste niemand, in welche Expertengruppe er gehoert.
+         In der Expertenansicht steht das Thema schon in der Ueberschrift. */
+      if (jigsawActive() && jigsaw.view === 'home' && Number.isInteger(m.topic)) {
+        row.appendChild(el("span", { className: "topic-tag", text: jigsaw.topics[m.topic] }));
+      }
 
       const role = (featureOn('roles') && m.roleId) ? getRoleById(m.roleId) : null;
       let detail = null;

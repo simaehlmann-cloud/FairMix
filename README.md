@@ -77,6 +77,10 @@ Falls doch einmal deinstalliert werden muss: vorher in der App unter
 - [ ] Inhaltseinstufung ausfüllen
 - [ ] Screenshots (Handy und Tablet), Feature-Grafik 1024×500, Store-Icon 512×512
 - [ ] Bei jedem Upload `version` **und** `android-versionCode` in `config.xml` erhöhen
+- [ ] Bei einer neuen Funktion: Absatz in `aboutP2`/`aboutP4` ergänzen (de **und** en).
+      Kein Test merkt das – die Aufzählung im Lite-Hinweis kommt dagegen aus
+      `FEATURES` und pflegt sich selbst.
+- [ ] Bei einer neuen gespeicherten Datenart: `datenschutz.html` Abschnitt 3 ergänzen
 
 ## Lite und Pro
 
@@ -99,4 +103,4 @@ Lite öffnet den Store-Eintrag von Pro – vorher zeigt er ins Leere.
 
 ## Version
 
-1.20.0 (versionCode 12000)
+1.21.0 (versionCode 12100)
