@@ -9,9 +9,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    # Beide Play-Store-Eintraege entstehen aus demselben Commit. Der
+    # Lite-Zweig legt vorher build-lite.sh ueber den Quellbaum – geaendert
+    # werden dabei nur Schalter, Kennung, Name und Icons.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - edition: pro
+            app_id: de.fairmix.app
+            app_name: FairMix
+            quelle: '.'
+          - edition: lite
+            app_id: de.fairmix.lite
+            app_name: FairMix Lite
+            quelle: 'lite'
+
     env:
-      APP_ID: de.fairmix.app
-      APP_NAME: FairMix
+      APP_ID: ${{ matrix.app_id }}
+      APP_NAME: ${{ matrix.app_name }}
+      QUELLE: ${{ matrix.quelle }}
       # Festgepinnt, damit derselbe Commit in einem Jahr dasselbe Ergebnis
       # liefert. Zum Anheben nur diese Zeilen ändern und den Lauf beobachten –
       # nicht mittendrin auf "latest" zurückstellen.
@@ -31,11 +48,23 @@ jobs:
 
       # Bewusst ganz vorne: Ein fehlerhafter Commit fällt so nach etwa einer
       # halben Minute durch, statt erst nach dem Herunterladen des Android-SDK.
+      # Der Smoketest ruft sich selbst mit gesetztem Schalter erneut auf und
+      # deckt damit beide Fassungen ab. Er laeuft deshalb im Quellbaum, nicht
+      # im erzeugten Lite-Verzeichnis.
       - name: Prüfungen
         run: |
           set -e
           node validate.js
           node smoketest.js
+          node stresstest.js > /dev/null
+
+      - name: Lite-Fassung erzeugen
+        if: matrix.edition == 'lite'
+        run: |
+          set -e
+          python3 -m pip install --quiet --break-system-packages Pillow || pip install --quiet Pillow
+          chmod +x build-lite.sh
+          ./build-lite.sh
 
       - name: Java einrichten
         uses: actions/setup-java@v4
@@ -61,14 +90,20 @@ jobs:
         run: |
           set -e
           cordova create build "$APP_ID" "$APP_NAME"
-          cp config.xml build/config.xml
+          cp "$QUELLE/config.xml" build/config.xml
           mkdir -p build/res/android
-          cp res/android/* build/res/android/
+          cp "$QUELLE"/res/android/* build/res/android/
 
           # Nur die tatsächlichen App-Dateien in www kopieren
           rm -rf build/www/*
-          cp index.html manifest.json sw.js datenschutz.html impressum.html build/www/
-          cp icon.png icon-192.png icon-maskable-512.png build/www/
+          cp "$QUELLE"/index.html "$QUELLE"/manifest.json "$QUELLE"/sw.js \
+             "$QUELLE"/datenschutz.html "$QUELLE"/impressum.html build/www/
+          cp "$QUELLE"/icon.png "$QUELLE"/icon-192.png "$QUELLE"/icon-maskable-512.png build/www/
+
+          # Kontrolle: was hier steht, landet im Store und ist danach
+          # unveränderlich.
+          grep -o 'id="[^"]*"' build/config.xml | head -1
+          grep -o '<name>[^<]*</name>' build/config.xml | head -1
 
           cd build
           cordova platform add "android@${CORDOVA_ANDROID}"
@@ -104,7 +139,7 @@ jobs:
       - name: Debug-APK hochladen
         uses: actions/upload-artifact@v4
         with:
-          name: FairMix-debug-apk
+          name: FairMix-${{ matrix.edition }}-debug-apk
           path: build/platforms/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -169,7 +204,7 @@ jobs:
         if: steps.keystore.outputs.vorhanden == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: FairMix-release-apk
+          name: FairMix-${{ matrix.edition }}-release-apk
           path: build/platforms/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
@@ -177,6 +212,6 @@ jobs:
         if: steps.keystore.outputs.vorhanden == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: FairMix-release-aab
+          name: FairMix-${{ matrix.edition }}-release-aab
           path: build/platforms/android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
