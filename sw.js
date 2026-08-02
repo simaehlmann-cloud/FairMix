@@ -4,7 +4,7 @@
    - Übrige Dateien: erst Cache, Aktualisierung im Hintergrund
    Der Worker übernimmt erst nach Bestätigung durch die App (SKIP_WAITING). */
 
-const CACHE = 'fairmix-v28';
+const CACHE = 'fairmix-v29';
 
 const ASSETS = [
   './',

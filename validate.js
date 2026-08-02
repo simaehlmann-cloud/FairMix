@@ -179,6 +179,78 @@ for (const [re, msg] of [
 ]) if (!re.test(cfg)) E(msg);
 if (!errors.some(e => e.startsWith('config.xml'))) O('config.xml vollständig');
 
+/* ---------- 12b. Versionsnummern stimmen überein ---------- */
+/* Drei Stellen nennen dieselbe Version. Liefen sie auseinander, zeigte
+   die App im Store eine andere Nummer als unter "Über FairMix" – und der
+   Fehlerbericht eines Nutzers ließe sich keinem Stand mehr zuordnen. */
+const appVer = (js.match(/const APP_VERSION\s*=\s*"([\d.]+)"/) || [])[1];
+const cfgVer = (cfg.match(/\sversion="([\d.]+)"/) || [])[1];
+const cfgCode = (cfg.match(/android-versionCode="(\d+)"/) || [])[1];
+const readme = fs.readFileSync('README.md', 'utf8');
+if (!appVer) E('APP_VERSION nicht gefunden');
+else if (appVer !== cfgVer) E(`Version weicht ab: APP_VERSION ${appVer}, config.xml ${cfgVer}`);
+else if (!readme.includes(appVer)) E(`README.md nennt Version ${appVer} nicht`);
+else if (cfgCode && !readme.includes(cfgCode)) E(`README.md nennt versionCode ${cfgCode} nicht`);
+else O(`Version ${appVer} (versionCode ${cfgCode}) überall gleich`);
+
+/* ---------- 12c. Lite/Pro-Schalter ---------- */
+/* Mit FAIRMIX_LITE=1 prueft dieses Skript den erzeugten Lite-Build,
+   sonst den Pro-Stand im Wurzelverzeichnis. */
+const istLite = process.env.FAIRMIX_LITE === '1';
+const liteFlag = js.match(/const IS_LITE\s*=\s*(true|false);/);
+if (!liteFlag) E('Schalter IS_LITE fehlt – build-lite.sh findet nichts zum Umstellen');
+else if ((liteFlag[1] === 'true') !== istLite)
+  E(istLite ? 'IS_LITE steht auf false – der Lite-Build wäre eine Kopie von Pro'
+            : 'IS_LITE steht auf true – im Hauptzweig gehört Pro ausgeliefert');
+
+const sperren = (js.match(/const LITE_LOCKED = \[([^\]]*)\]/) || [])[1];
+if (!sperren) E('LITE_LOCKED fehlt');
+else {
+  const keys = [...sperren.matchAll(/'([a-z]+)'/g)].map(m => m[1]);
+  const featBlock = js.slice(js.indexOf('const FEATURES = ['),
+                             js.indexOf('];', js.indexOf('const FEATURES = [')));
+  const featKeys = [...featBlock.matchAll(/key:\s*'([a-z]+)'/g)].map(m => m[1]);
+  const unbekannt = keys.filter(k => !featKeys.includes(k));
+  if (unbekannt.length) E(`LITE_LOCKED nennt Funktionen, die es nicht gibt: ${unbekannt.join(', ')}`);
+  if (!keys.length) E('LITE_LOCKED ist leer – Lite wäre mit Pro identisch');
+}
+
+/* Der Export muss die Sperre überleben: er ist in Lite der einzige Weg,
+   die eigenen Namen nach Pro mitzunehmen. */
+if (!/function canExport\(\)\s*\{\s*return IS_LITE \|\|/.test(js))
+  E('canExport hängt nicht am Lite-Schalter – Lite käme ohne Export nicht zu Pro');
+if (!/lite: IS_LITE/.test(js)) E('Die Sicherung kennzeichnet ihre Herkunft nicht');
+if (!/data\.lite === true/.test(js))
+  E('Import wertet die Herkunft nicht aus – Pro startete nach einer Lite-Sicherung ohne Zusatzfunktionen');
+
+/* Der Umstiegshinweis ist ein Overlay und muss wie die übrigen auf die
+   Zurück-Taste reagieren, sonst verlässt sie die App. */
+const zurueck = js.slice(js.indexOf('"backbutton"'), js.indexOf('"backbutton"') + 700);
+if (zurueck.indexOf('liteInfoIsOpen') === -1 ||
+    zurueck.indexOf('liteInfoIsOpen') > zurueck.indexOf('exitApp'))
+  E('Zurück-Taste schließt den Lite-Hinweis nicht, bevor sie die App beendet');
+
+/* Zwei Play-Store-Eintraege brauchen zwei Kennungen. Deckten sie sich,
+   ueberschriebe ein Build den anderen – und nach der Veroeffentlichung
+   laesst sich daran nichts mehr aendern. */
+const paket = (cfg.match(/<widget id="([\w.]+)"/) || [])[1];
+const angezeigt = (cfg.match(/<name>([^<]+)<\/name>/) || [])[1] || '';
+if (!paket) E('config.xml ohne Paketkennung');
+else if (istLite && !/\.lite$/.test(paket)) E(`Lite-Build traegt die Kennung ${paket}`);
+else if (!istLite && /\.lite$/.test(paket)) E(`Pro-Build traegt eine Lite-Kennung: ${paket}`);
+if (istLite && !/Lite/.test(angezeigt)) E(`Lite-Build heisst im Launcher "${angezeigt}"`);
+if (!istLite && /Lite/.test(angezeigt)) E(`Pro-Build heisst im Launcher "${angezeigt}"`);
+
+const store = (js.match(/const PRO_STORE_URL = "([^"]+)"/) || [])[1];
+if (!store) E('PRO_STORE_URL fehlt');
+else if (!/^https:\/\/play\.google\.com\/store\/apps\/details\?id=[\w.]+$/.test(store))
+  E(`PRO_STORE_URL sieht nicht nach einem Play-Store-Eintrag aus: ${store}`);
+/* Der Umstiegsknopf muss auf Pro zeigen, nicht auf die eigene App. */
+if (store && paket && istLite && store.indexOf(paket) !== -1)
+  E('PRO_STORE_URL verweist auf die Lite-Fassung selbst');
+if (!errors.some(e => /IS_LITE|LITE_LOCKED|canExport|Sicherung|Import wertet|Zurück-Taste|PRO_STORE_URL|Kennung|Launcher/.test(e)))
+  O(`Lite/Pro-Schalter vollständig verdrahtet (${istLite ? 'Lite' : 'Pro'}-Build)`);
+
 /* ---------- 13. Rechtstexte: vollständig und widerspruchsfrei ---------- */
 const legal = {
   'impressum.html':   fs.readFileSync('impressum.html', 'utf8'),

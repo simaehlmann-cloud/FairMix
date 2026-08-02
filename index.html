@@ -544,6 +544,21 @@ body.dark-mode .timer-box.running .timer-clock { color: #58c98a; }
   padding: var(--sp-3) 0; border-bottom: 1px dashed var(--list-border);
 }
 .feature-row:last-child { border-bottom: none; }
+/* Gesperrte Zeile: sichtbar, aber erkennbar nicht bedienbar. Der Text
+   bleibt voll lesbar – ausgegraut waere er schwerer zu entziffern, und
+   genau diese Zeilen sollen ja gelesen werden. */
+.feature-row.locked { cursor: pointer; }
+.feature-row.locked input[type="checkbox"] { opacity: 0.35; cursor: pointer; }
+.feature-row.locked strong::after {
+  content: " 🔒"; font-size: 14px;
+}
+.lock-tag {
+  display: inline-block; margin-top: 4px; padding: 1px 8px;
+  border-radius: 999px; background: #d99b00; color: #1a1a24;
+  font-size: 12px; font-weight: 700;
+}
+.lite-list { text-align: left; margin: 0 0 var(--sp-4); padding-left: 22px; }
+.lite-list li { margin: 6px 0; line-height: 1.45; }
 .feature-row input[type="checkbox"] {
   width: 26px; height: 26px; min-height: 26px; margin: 2px 0 0;
   flex: 0 0 auto; cursor: pointer;
@@ -612,7 +627,7 @@ body.dark-mode .text-link { color: var(--border-color); }
 <div id="pageStart" class="page active">
   <div id="fairmixBar">
     <img src="icon-192.png" alt="" width="192" height="192">
-    <span>FairMix Pro</span>
+    <span data-i18n="appTitle">FairMix Pro</span>
   </div>
   <div class="wrap">
     <div id="backupHint" class="backup-hint" hidden>
@@ -684,14 +699,26 @@ body.dark-mode .text-link { color: var(--border-color); }
   <div class="settings-box">
     <h3 data-i18n="settingsFeatures">Funktionen</h3>
     <p class="hint" data-i18n="settingsFeaturesHint">Schalte aus, was du nicht brauchst. Die Bereiche verschwinden dann aus der App.</p>
+    <p id="liteFeatureHint" class="hint" data-i18n="hintLiteFeatures" hidden>Die Zeilen mit Schloss gehören zu FairMix Pro. Tippe darauf, um zu sehen, was sie tun.</p>
     <div id="featureList"></div>
+    <div id="liteUpsellRow" class="btn-row" hidden>
+      <button class="btn orange" onclick="openLiteInfo()" data-i18n="btnAboutPro">Was kann FairMix Pro?</button>
+    </div>
   </div>
 
-  <div id="settingsBackup" class="settings-box">
+  <div id="settingsExport" class="settings-box">
     <h3 data-i18n="titleBackup">Backup als Datei</h3>
     <p class="hint" data-i18n="hintBackup">Sichert alle Namen, Gruppen, Rollen und Regeln in einer Datei.</p>
     <div class="btn-row">
       <button class="btn green" onclick="exportData()" data-i18n="btnExportData">Backup exportieren</button>
+    </div>
+    <p id="liteExportHint" class="hint" data-i18n="hintExportLite" hidden>Diese Datei liest FairMix Pro ein – deine Namen ziehen also mit um.</p>
+  </div>
+
+  <div id="settingsBackup" class="settings-box">
+    <h3 data-i18n="titleRestore">Backup einlesen</h3>
+    <p class="hint" data-i18n="hintRestore">Ersetzt alle Namen, Klassen und Einstellungen durch den Inhalt der Datei.</p>
+    <div class="btn-row">
       <button class="btn blue"  onclick="pickBackup()" data-i18n="btnImportData">Backup importieren</button>
     </div>
     <input type="file" id="jsonFile" accept=".json,application/json" hidden onchange="importData()">
@@ -938,6 +965,10 @@ body.dark-mode .text-link { color: var(--border-color); }
     <p data-i18n="aboutP3"></p>
     <p data-i18n="aboutP4"></p>
     <p data-i18n="aboutP5"></p>
+    <p id="aboutLiteP" data-i18n="aboutLite" hidden></p>
+    <div id="aboutLiteRow" class="btn-row" hidden>
+      <button class="btn orange" onclick="openLiteInfo()" data-i18n="btnAboutPro">Was kann FairMix Pro?</button>
+    </div>
     <p class="legal-links">
       <a class="text-link" href="datenschutz.html" data-i18n="linkPrivacy">Datenschutzerklärung</a>
       <span aria-hidden="true">·</span>
@@ -966,6 +997,23 @@ body.dark-mode .text-link { color: var(--border-color); }
       <button id="roleEditCancel" class="btn blue" style="width:100%;margin:8px 0 0;" onclick="cancelRoleEdit()" data-i18n="btnCancel" hidden>Abbrechen</button>
     </div>
     <button class="btn red" style="width:100%;margin:16px 0 0;" onclick="closeRoleModal()" data-i18n="btnClose">Schließen</button>
+  </div>
+</div>
+
+<!-- ======================= LITE-HINWEIS =========================== -->
+<div id="liteModal" class="modal-overlay" role="dialog" aria-modal="true">
+  <div class="modal-content" style="max-width:420px;">
+    <h3 data-i18n="titleLiteInfo">Das kann FairMix Pro</h3>
+    <ul id="liteFeatureNames" class="lite-list"></ul>
+    <h4 data-i18n="titleLiteSteps">So ziehen deine Namen mit um</h4>
+    <ol class="lite-list">
+      <li data-i18n="liteStep1">Hier exportieren – du bekommst eine Datei.</li>
+      <li data-i18n="liteStep2">FairMix Pro installieren.</li>
+      <li data-i18n="liteStep3">Dort unter „Backup einlesen“ die Datei wählen. Alles ist da.</li>
+    </ol>
+    <button class="btn green" style="width:100%;margin:0;" onclick="exportFromLiteInfo()" data-i18n="btnExportForMove">Namen jetzt exportieren</button>
+    <button class="btn orange" style="width:100%;margin:8px 0 0;" onclick="openProStore()" data-i18n="btnOpenStore">FairMix Pro im Play Store öffnen</button>
+    <button class="btn red" style="width:100%;margin:16px 0 0;" onclick="closeLiteInfo()" data-i18n="btnClose">Schließen</button>
   </div>
 </div>
 
@@ -1030,7 +1078,25 @@ body.dark-mode .text-link { color: var(--border-color); }
 /* =================================================================
    FairMix Pro
    ================================================================= */
-const APP_VERSION = "1.19.0";
+const APP_VERSION = "1.20.0";
+
+/* -------------------------------------------------
+   0  Fassung: Lite oder Pro
+   Beide Play-Store-Eintraege entstehen aus derselben Datei. Fuer den
+   Lite-Build wird allein diese Zeile auf true gesetzt (build-lite.sh).
+   Der Schalter blendet ausschliesslich Oberflaeche aus – am Datenmodell
+   aendert er nichts, sonst schriebe Lite Sicherungen, die Pro nicht mehr
+   sauber liest.
+   ------------------------------------------------- */
+const IS_LITE = false;
+
+/* Funktionen, die Lite nicht anbietet. "data" steuert nur den Import –
+   der Export bleibt in beiden Fassungen erreichbar, siehe canExport(). */
+const LITE_LOCKED = ['roles', 'fixed', 'rules', 'levels', 'partners', 'classes', 'data'];
+
+/* Ziel des Umstiegs-Knopfes. Bewusst als Zeichenkette im Skript und nicht
+   als href im Markup: die App darf keine externen Ressourcen laden. */
+const PRO_STORE_URL = "https://play.google.com/store/apps/details?id=de.fairmix.app";
 
 /* -------------------------------------------------
    1  Übersetzungen
@@ -1102,6 +1168,21 @@ const i18n = {
     msgDrawReset: "Neue Runde – die Zähler stehen wieder auf null.",
     featClasses: "Mehrere Klassen",
     featClassesHint: "Namen, Regeln und Historien je Klasse getrennt speichern.",
+    titleRestore: "Backup einlesen",
+    hintRestore: "Ersetzt alle Namen, Klassen und Einstellungen durch den Inhalt der Datei.",
+    hintExportLite: "Diese Datei liest FairMix Pro ein – deine Namen ziehen also mit um.",
+    hintLiteFeatures: "Die Zeilen mit Schloss gehören zu FairMix Pro. Tippe darauf, um zu sehen, was sie tun.",
+    lockedInLite: "nur in Pro",
+    btnAboutPro: "Was kann FairMix Pro?",
+    titleLiteInfo: "Das kann FairMix Pro",
+    titleLiteSteps: "So ziehen deine Namen mit um",
+    liteStep1: "Hier exportieren – du bekommst eine Datei.",
+    liteStep2: "FairMix Pro installieren.",
+    liteStep3: "Dort unter „Backup einlesen“ die Datei wählen. Alles ist da.",
+    btnExportForMove: "Namen jetzt exportieren",
+    btnOpenStore: "FairMix Pro im Play Store öffnen",
+    msgStoreFailed: "Der Play Store ließ sich nicht öffnen. Suche dort nach „FairMix Pro“.",
+    aboutLite: "Du nutzt FairMix Lite. Namen verwalten, ziehen und Gruppen bilden – manuell wie zufällig – sind vollständig enthalten und bleiben kostenlos. Rollen, fixierte Personen, Regeln, Stufen, Partnerhistorie, mehrere Klassen und der Import gehören zu FairMix Pro. Der Export ist auch hier frei: deine Namen gehören dir.",
     titleDemo: "Erst einmal ausprobieren?",
     hintDemo: "Lädt eine Beispielklasse mit 24 Namen, Stufen und zwei Regeln. So siehst du alles in Aktion, ohne etwas zu tippen.",
     btnLoadDemo: "Beispielklasse laden",
@@ -1388,6 +1469,21 @@ const i18n = {
     msgDrawReset: "New round – the counters are back to zero.",
     featClasses: "Multiple classes",
     featClassesHint: "Keep names, rules and history separate per class.",
+    titleRestore: "Load a backup",
+    hintRestore: "Replaces all names, classes and settings with the contents of the file.",
+    hintExportLite: "FairMix Pro reads this file – so your names move across with you.",
+    hintLiteFeatures: "The rows with a lock belong to FairMix Pro. Tap one to see what it does.",
+    lockedInLite: "Pro only",
+    btnAboutPro: "What does FairMix Pro do?",
+    titleLiteInfo: "This is what FairMix Pro adds",
+    titleLiteSteps: "How your names move across",
+    liteStep1: "Export here – you get a file.",
+    liteStep2: "Install FairMix Pro.",
+    liteStep3: "Choose the file there under \u201cLoad a backup\u201d. Everything is there.",
+    btnExportForMove: "Export names now",
+    btnOpenStore: "Open FairMix Pro in the Play Store",
+    msgStoreFailed: "The Play Store would not open. Search there for \u201cFairMix Pro\u201d.",
+    aboutLite: "You are using FairMix Lite. Managing names, drawing, and building groups \u2013 by hand or at random \u2013 are fully included and stay free. Roles, fixed persons, rules, levels, partner history, several classes and the import belong to FairMix Pro. The export is free here too: your names are yours.",
     titleDemo: "Want to try it out first?",
     hintDemo: "Loads a sample class with 24 names, levels and two rules. That way you can see everything in action without typing anything.",
     btnLoadDemo: "Load sample class",
@@ -1724,7 +1820,25 @@ const FEATURES = [
   { key: 'data',  label: 'featData',  hint: 'featDataHint'  }
 ];
 
-function featureOn(key) { return features[key] !== false; }
+/* Gesperrt heisst: aus, unabhaengig davon, was im Speicher steht.
+   Wichtig ist, dass "features" dabei unveraendert bleibt. Wuerde Lite die
+   Schalter selbst auf false setzen, stuenden sie auch in der Sicherung –
+   und Pro startete nach dem Import ohne die Funktionen, fuer die bezahlt
+   wurde. */
+/* Der Name unterscheidet die beiden Store-Eintraege. Er wird zur Laufzeit
+   gesetzt, damit beide Fassungen aus derselben Quelle entstehen. */
+i18n.de.appTitle = i18n.en.appTitle = IS_LITE ? "FairMix Lite" : "FairMix Pro";
+
+function liteLocked(key) { return IS_LITE && LITE_LOCKED.indexOf(key) !== -1; }
+
+function featureOn(key) { return !liteLocked(key) && features[key] !== false; }
+
+/* Import und Export haben unterschiedliche Bedeutung. Der Export ist der
+   Zugriff auf die eigenen Daten und in Lite der einzige Weg zu Pro; er
+   haengt deshalb nicht an der Sperre. Der Import ist Komfort und bleibt
+   Pro vorbehalten. */
+function canExport() { return IS_LITE || featureOn('data'); }
+function canImport() { return featureOn('data'); }
 let isAnimating   = false;
 
 const defaultRoles = [
@@ -1938,6 +2052,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (dialogIsOpen())            return closeDialog(false);
     if (presentationIsOpen())      return closePresentation();
     if (roleModalIsOpen())         return closeRoleModal();
+    if (liteInfoIsOpen())          return closeLiteInfo();
   });
 
   /* Klick auf den Hintergrund schließt das jeweilige Overlay */
@@ -1946,6 +2061,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("dialogModal").addEventListener("click", e => {
     if (e.target.id === "dialogModal") closeDialog(false);
+  });
+  document.getElementById("liteModal").addEventListener("click", e => {
+    if (e.target.id === "liteModal") closeLiteInfo();
   });
 
   if (window.matchMedia) {
@@ -1976,6 +2094,7 @@ document.addEventListener("deviceready", () => {
     if (dialogIsOpen())       return closeDialog(false);
     if (presentationIsOpen()) return closePresentation();
     if (roleModalIsOpen())    return closeRoleModal();
+    if (liteInfoIsOpen())     return closeLiteInfo();
     const current = document.querySelector(".page.active");
     if (current && current.id !== "pageStart") return showPage("pageStart");
     if (navigator.app && navigator.app.exitApp) navigator.app.exitApp();
@@ -2046,12 +2165,21 @@ function renderFeatureList() {
   const box = document.getElementById("featureList");
   box.innerHTML = "";
   FEATURES.forEach(f => {
-    const row = el("div", { className: "feature-row" });
+    const gesperrt = liteLocked(f.key);
+    const row = el("div", { className: "feature-row" + (gesperrt ? " locked" : "") });
 
     const cb = el("input", { type: "checkbox" });
     cb.checked = featureOn(f.key);
     cb.setAttribute("aria-label", t(f.label));
+    /* Bewusst nicht "disabled": ein abgeschaltetes Bedienelement
+       ueberspringt TalkBack, und wer die App vorlesen laesst, erfuehre nie,
+       dass es die Funktion gibt. Stattdessen bleibt das Kaestchen
+       erreichbar, meldet sich als gesperrt und fuehrt zum Hinweis. */
+    if (gesperrt) cb.setAttribute("aria-disabled", "true");
     cb.onchange = () => {
+      /* Ein gesperrter Schalter darf den Speicher nicht anfassen: der Wert
+         gehoert dem Nutzer und muss den Umzug nach Pro ueberstehen. */
+      if (gesperrt) { cb.checked = false; openLiteInfo(); return; }
       features[f.key] = cb.checked;
       saveState();
       applyFeatureVisibility();
@@ -2063,11 +2191,57 @@ function renderFeatureList() {
     const text = el("div");
     text.appendChild(el("strong", { text: t(f.label) }));
     text.appendChild(el("small",  { text: t(f.hint) }));
+    if (gesperrt) text.appendChild(el("span", { className: "lock-tag", text: t('lockedInLite') }));
 
     row.appendChild(cb);
     row.appendChild(text);
+    /* Die ganze Zeile ist das Ziel – ein 26 Pixel breites Kaestchen zu
+       treffen ist auf dem Handy keine faire Aufgabe. */
+    if (gesperrt) row.onclick = () => openLiteInfo();
     box.appendChild(row);
   });
+}
+
+/* -------------------------------------------------
+   Umstieg von Lite auf Pro
+   ------------------------------------------------- */
+function openLiteInfo() {
+  const liste = document.getElementById("liteFeatureNames");
+  if (liste) {
+    liste.innerHTML = "";
+    FEATURES.filter(f => liteLocked(f.key))
+            .forEach(f => liste.appendChild(el("li", { text: t(f.label) + " – " + t(f.hint) })));
+  }
+  const box = document.getElementById("liteModal");
+  if (box) box.classList.add("open");
+}
+
+function closeLiteInfo() {
+  const box = document.getElementById("liteModal");
+  if (box) box.classList.remove("open");
+}
+
+function liteInfoIsOpen() {
+  const box = document.getElementById("liteModal");
+  return !!box && box.classList.contains("open");
+}
+
+/* Erst sichern, dann den Store oeffnen – in dieser Reihenfolge, weil die
+   Datei sonst vergessen wird, sobald die App im Hintergrund liegt. */
+function exportFromLiteInfo() {
+  exportData();
+  closeLiteInfo();
+}
+
+function openProStore() {
+  /* _system schickt die Adresse an den Browser bzw. an die Play-App.
+     Ohne das laedt der Store im WebView der App und bleibt dort haengen. */
+  try {
+    const w = window.open(PRO_STORE_URL, "_system");
+    if (!w) notify(t('msgStoreFailed'), true);
+  } catch (e) {
+    notify(t('msgStoreFailed'), true);
+  }
 }
 
 function applyFeatureVisibility() {
@@ -2077,7 +2251,13 @@ function applyFeatureVisibility() {
   set("featureRules", featureOn('rules'));
   set("featureLevels", featureOn('levels'));
   set("featurePartners", featureOn('partners'));
-  set("settingsBackup",  featureOn('data'));
+  set("settingsExport",  canExport());
+  set("settingsBackup",  canImport());
+  set("liteExportHint",  IS_LITE);
+  set("liteFeatureHint", IS_LITE);
+  set("liteUpsellRow",   IS_LITE);
+  set("aboutLiteP",      IS_LITE);
+  set("aboutLiteRow",    IS_LITE);
   set("saveLoadBox",     featureOn('classes'));
   set("featureLevelMode", featureOn('levels'));
   document.querySelectorAll(".feature-roles").forEach(b => { b.hidden = !featureOn('roles'); });
@@ -3252,7 +3432,7 @@ function backupAgeDays() {
 }
 
 function backupHintDue() {
-  if (!featureOn('data')) return false;      /* ohne Backup-Bereich kein Hinweis */
+  if (!canExport()) return false;            /* ohne Export-Knopf kein Hinweis */
   if (backupNagOff) return false;
   if (originalNames.length < BACKUP_MIN_NAMES) return false;
   const alter = backupAgeDays();
@@ -3488,17 +3668,28 @@ function deleteSavedNames() {
 /* -------------------------------------------------
    16  Backup
    ------------------------------------------------- */
-function exportData() {
-  const data = {
+/* Der Inhalt der Sicherungsdatei. Ausgelagert, weil der Weg ueber das
+   Teilen-Plugin nicht pruefbar ist – die Nutzdaten selbst sind es damit
+   sehr wohl. */
+function backupPayload() {
+  return {
     app: "FairMix",
     version: 3,
     /* Formatversion der Nutzdaten – erlaubt späteren Fassungen und der
        Lite-Version, alte Sicherungen zu erkennen und zu migrieren. */
     schema: BACKUP_SCHEMA,
+    /* Herkunft der Datei. Pro wertet das aus, um die Funktionsschalter
+       einer Lite-Sicherung zu ueberspringen – sonst startete Pro nach dem
+       Import mit ausgeschalteten Zusatzfunktionen. */
+    lite: IS_LITE,
     exported: new Date().toISOString(),
     state: safeParse(localStorage.getItem("fairmix_full_state"), {}),
     savedLists: safeParse(localStorage.getItem("fairmix_saved_lists"), {})
   };
+}
+
+function exportData() {
+  const data = backupPayload();
   deliverFile("FairMix_Backup_" + stamp() + ".json",
               new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
   markBackupDone();
@@ -3554,8 +3745,19 @@ function backupProblem(data) {
 function importDataFromObject(data) {
   const vorherState = localStorage.getItem("fairmix_full_state");
   const vorherLists = localStorage.getItem("fairmix_saved_lists");
+
+  /* Eine Lite-Sicherung traegt Funktionsschalter, die in Lite gar nicht
+     bedienbar waren. Wuerde Pro sie uebernehmen, staende der Kaeufer nach
+     dem Import vor einer App ohne Rollen, Regeln und Stufen. Die uebrigen
+     Daten – Namen, Klassen, Historie – bleiben unangetastet. */
+  let zustand = data.state;
+  if (data.lite === true && zustand && typeof zustand === "object" && zustand.features) {
+    zustand = Object.assign({}, zustand);
+    delete zustand.features;
+  }
+
   try {
-    localStorage.setItem("fairmix_full_state", JSON.stringify(data.state));
+    localStorage.setItem("fairmix_full_state", JSON.stringify(zustand));
     localStorage.setItem("fairmix_saved_lists",
       JSON.stringify(data.savedLists && typeof data.savedLists === "object" ? data.savedLists : {}));
   } catch (err) {

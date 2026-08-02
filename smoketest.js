@@ -2,8 +2,27 @@
    Führt die echte App-Logik aus und spielt typische Bedienabläufe durch. */
 const fs = require('fs');
 const vm = require('vm');
+const { execFileSync } = require('child_process');
 
-const html = fs.readFileSync('index.html', 'utf8');
+/* Lite und Pro entstehen aus derselben Datei. Damit beide Fassungen
+   wirklich geprueft sind, laeuft dieses Skript zweimal: erst als Pro,
+   danach ruft es sich selbst mit gesetztem Schalter als Kindprozess auf.
+   Nur der Elternlauf gibt am Ende eine Zusammenfassung aus – sonst faende
+   mutate.sh zwei widerspruechliche Ergebnisse in einer Ausgabe. */
+const LITE_RUN = process.env.FAIRMIX_LITE === '1';
+
+const rohHtml = fs.readFileSync('index.html', 'utf8');
+
+/* Der Schalter wird fuer jeden Lauf ausdruecklich gesetzt, statt nur in
+   eine Richtung umgelegt zu werden. So laeuft dieses Skript auch in einem
+   Baum, in dem index.html bereits auf Lite steht. */
+const SCHALTER = /const IS_LITE = (?:true|false);/;
+let html = rohHtml.replace(SCHALTER, 'const IS_LITE = ' + (LITE_RUN ? 'true' : 'false') + ';');
+if (!SCHALTER.test(rohHtml)) {
+  console.log('  \u2717 Schalter IS_LITE nicht gefunden');
+  if (LITE_RUN) console.log('##LITE 1 1');
+  process.exit(1);
+}
 
 /* ================= Mini-DOM ================= */
 const VOID = new Set(['input', 'br', 'img', 'meta', 'link', 'hr', 'source']);
@@ -185,7 +204,11 @@ vm.runInContext(js, ctx, { filename: 'app.js' });
 /* ================= Abläufe ================= */
 const results = [];
 const queue = [];
-const check = (label, fn) => queue.push([label, fn]);
+/* check laeuft nur als Pro, checkLite nur als Lite. So bleiben die
+   bestehenden Ablaeufe unveraendert und die Lite-Pruefungen sauber
+   getrennt. */
+const check     = (label, fn) => { if (!LITE_RUN) queue.push([label, fn]); };
+const checkLite = (label, fn) => { if (LITE_RUN)  queue.push(['Lite: ' + label, fn]); };
 const flush = () => new Promise(r => setImmediate(r));
 const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
 const $ = id => documentStub.getElementById(id);
@@ -2670,19 +2693,219 @@ check('Speicher nutzt nur die vier bekannten Schluessel', () => {
          'unerwartete Speicherschluessel: ' + schluessel.join(', '));
 });
 
+/* ================= Pro: Umstieg von Lite ================= */
+
+check('In Pro sperrt LITE_LOCKED nichts', () => {
+  assert(g('IS_LITE') === false, 'Der Pro-Lauf hat den Schalter nicht gesetzt');
+  g('LITE_LOCKED').forEach(key => {
+    assert(g('liteLocked')(key) === false, 'Funktion "' + key + '" in Pro gesperrt');
+  });
+  assert(g('canImport')() === true, 'Import in Pro nicht verfügbar');
+  assert(g('t')('appTitle') === 'FairMix Pro', 'Titel: ' + g('t')('appTitle'));
+});
+
+check('Sicherung aus Lite schaltet die Zusatzfunktionen in Pro nicht ab', () => {
+  vm.runInContext("Object.keys(features).forEach(k => features[k] = true); saveState();", ctx);
+  const eigene = g('backupPayload')();
+  assert(eigene.lite === false, 'Pro kennzeichnet die eigene Datei als Lite');
+
+  /* Eine Datei, wie Lite sie schreibt: gültige Daten, aber Schalter, die
+     dort nie bedienbar waren. */
+  const ausLite = JSON.parse(JSON.stringify(eigene));
+  ausLite.lite = true;
+  ausLite.state.features = { roles: false, fixed: false, rules: false, levels: false,
+                             partners: false, classes: true, data: true };
+  ausLite.state.originalNames = ['Ida', 'Jan'];
+
+  assert(g('backupProblem')(ausLite) === null, 'Lite-Sicherung wird abgelehnt');
+  assert(g('importDataFromObject')(ausLite) === true, 'Import fehlgeschlagen');
+  assert(g('originalNames').join(',') === 'Ida,Jan', 'Namen nicht übernommen');
+  assert(g('features').roles === true,  'Rollen nach dem Import abgeschaltet');
+  assert(g('features').rules === true,  'Regeln nach dem Import abgeschaltet');
+  assert(g('features').levels === true, 'Stufen nach dem Import abgeschaltet');
+});
+
+check('Sicherung aus Pro stellt die Funktionsschalter dagegen wieder her', () => {
+  vm.runInContext("features.rules = false; saveState();", ctx);
+  const ausPro = g('backupPayload')();
+  vm.runInContext("features.rules = true; saveState();", ctx);
+  assert(g('importDataFromObject')(ausPro) === true, 'Import fehlgeschlagen');
+  assert(g('features').rules === false, 'eigene Einstellung ging beim Import verloren');
+  vm.runInContext("Object.keys(features).forEach(k => features[k] = true); saveState();", ctx);
+});
+
+/* ================= Lite-Fassung ================= */
+/* Diese Abläufe laufen nur im Kindprozess mit IS_LITE = true. */
+
+checkLite('Gesperrte Funktionen bleiben aus, auch wenn der Speicher sie einschaltet', () => {
+  /* Der schärfste Fall: jemand importiert eine Pro-Sicherung in Lite.
+     Dann stehen alle Schalter auf true – wirken darf davon nichts. */
+  vm.runInContext("Object.keys(features).forEach(k => features[k] = true);", ctx);
+  g('renderAll')();
+
+  g('LITE_LOCKED').forEach(key => {
+    assert(g('featureOn')(key) === false, 'Funktion "' + key + '" ist in Lite aktiv');
+  });
+  assert($('featureFixed').hidden    === true, 'Fixierte Personen sichtbar');
+  assert($('featureRules').hidden    === true, 'Regelbereich sichtbar');
+  assert($('featureLevels').hidden   === true, 'Stufenbereich sichtbar');
+  assert($('featurePartners').hidden === true, 'Partnerbereich sichtbar');
+  assert($('featureData').hidden     === true, 'CSV-Import sichtbar');
+  assert($('saveLoadBox').hidden     === true, 'Klassenverwaltung sichtbar');
+  assert($('classBar').hidden        === true, 'Klassenleiste sichtbar');
+  assert(g("[...document.querySelectorAll('.feature-roles')].every(b => b.hidden)"),
+         'Rollen-Schaltflaechen sichtbar');
+});
+
+checkLite('Rollen werden auch rechnerisch nicht vergeben', () => {
+  ['Anna', 'Ben', 'Cem', 'Dana', 'Emil', 'Feli'].forEach(n => {
+    $('nameInput').value = n; g('addName')();
+  });
+  $('teamCount').value = '2'; $('teamSize').value = '';
+  g('generateTeams')();
+  assert(g('teams').length === 2, 'Gruppen nicht gebildet');
+  assert(g('teams').every(t => t.every(m => !m.roleId)), 'Rolle trotz Sperre vergeben');
+});
+
+checkLite('Der Speicher der Funktionsschalter bleibt unangetastet', () => {
+  /* Wichtigster Ablauf des ganzen Umbaus: Lite darf die Schalter nicht
+     auf false schreiben, sonst startet Pro nach dem Import ohne die
+     Funktionen, für die bezahlt wurde. */
+  assert(g('features').roles === true, 'Lite hat den Schalter "roles" überschrieben');
+  g('saveState')();
+  vm.runInContext("features.roles = false;", ctx);
+  g('loadState')();
+  assert(g('features').roles === true, 'gespeicherter Wert ging verloren');
+});
+
+checkLite('Tippen auf eine gesperrte Zeile öffnet den Hinweis und ändert nichts', () => {
+  g('renderFeatureList')();
+  const zeilen = documentStub.querySelectorAll('.feature-row.locked');
+  assert(zeilen.length === g('LITE_LOCKED').length,
+         'erwartet ' + g('LITE_LOCKED').length + ' gesperrte Zeilen, sind ' + zeilen.length);
+  const kaestchen = zeilen[0].querySelector('input');
+  assert(kaestchen.checked === false, 'Kästchen zeigt die Funktion als aktiv');
+  assert(kaestchen.getAttribute('aria-disabled') === 'true', 'Sperre nicht angesagt');
+  assert(kaestchen.disabled === false, 'Kästchen ist für Screenreader unerreichbar');
+
+  const vorher = JSON.stringify(g('features'));
+  zeilen[0].click();
+  assert(g('liteInfoIsOpen')() === true, 'Hinweis nicht geöffnet');
+  assert(JSON.stringify(g('features')) === vorher, 'Klick hat die Schalter verändert');
+  g('closeLiteInfo')();
+
+  /* Direkt am Kästchen: so kommt die Änderung an, wenn jemand mit
+     Tastatur oder Screenreader bedient. */
+  kaestchen.checked = true;
+  kaestchen.onchange();
+  assert(JSON.stringify(g('features')) === vorher, 'gesperrter Schalter hat den Speicher verändert');
+  assert(kaestchen.checked === false, 'Kästchen blieb angehakt');
+  assert(g('liteInfoIsOpen')() === true, 'Kästchen führt nicht zum Hinweis');
+});
+
+checkLite('Der Hinweis nennt jede gesperrte Funktion und führt zum Store', () => {
+  assert($('liteFeatureNames').children.length === g('LITE_LOCKED').length,
+         'Aufzählung unvollständig: ' + $('liteFeatureNames').children.length);
+  const url = g('PRO_STORE_URL');
+  assert(/^https:\/\/play\.google\.com\/store\/apps\/details\?id=/.test(url), 'Store-Adresse: ' + url);
+});
+
+checkLite('Escape schließt den Hinweis', () => {
+  assert(g('liteInfoIsOpen')() === true, 'Vorbedingung: Hinweis war nicht offen');
+  (listeners.keydown || []).forEach(fn => fn({ key: 'Escape' }));
+  assert(g('liteInfoIsOpen')() === false, 'Hinweis blieb offen');
+});
+
+checkLite('Die Zurück-Taste schließt den Hinweis, statt die App zu verlassen', () => {
+  /* Der deviceready-Zweig lässt sich hier nicht ausführen; geprüft wird
+     deshalb, dass der Hinweis in der Kette der Overlays steht. */
+  const zweig = rohHtml.slice(rohHtml.indexOf('"backbutton"'), rohHtml.indexOf('"backbutton"') + 600);
+  assert(zweig.indexOf('liteInfoIsOpen') > -1, 'Zurück-Taste kennt den Hinweis nicht');
+  assert(zweig.indexOf('liteInfoIsOpen') < zweig.indexOf('exitApp'), 'Prüfung steht nach exitApp');
+});
+
+checkLite('Export bleibt erreichbar, der Import verschwindet', () => {
+  g('renderAll')();
+  assert($('settingsExport').hidden === false, 'Export-Bereich ausgeblendet');
+  assert($('settingsBackup').hidden === true,  'Import-Bereich sichtbar');
+  assert(g('canExport')() === true,  'canExport meldet false');
+  assert(g('canImport')() === false, 'canImport meldet true');
+
+  /* Auch wenn der Schalter "data" im Speicher aus ist, muss der Export
+     bleiben – er ist der einzige Weg zu Pro. */
+  vm.runInContext("features.data = false;", ctx);
+  g('renderAll')();
+  assert($('settingsExport').hidden === false, 'Export folgt fälschlich dem Schalter "data"');
+  vm.runInContext("features.data = true;", ctx);
+  g('renderAll')();
+});
+
+checkLite('Die Sicherung ist als Lite gekennzeichnet', () => {
+  const daten = g('backupPayload')();
+  assert(daten.lite === true, 'Kennzeichen fehlt');
+  assert(daten.app === 'FairMix', 'App-Kennung abweichend');
+  assert(daten.schema === g('BACKUP_SCHEMA'), 'Formatversion abweichend');
+  assert(g('backupProblem')(daten) === null, 'eigene Sicherung wird abgelehnt');
+});
+
+checkLite('Der Name der Fassung steht im Titel', () => {
+  assert(g('t')('appTitle') === 'FairMix Lite', 'Titel: ' + g('t')('appTitle'));
+  g('setLanguage')('en');
+  assert(g('t')('appTitle') === 'FairMix Lite', 'Titel auf Englisch: ' + g('t')('appTitle'));
+  g('setLanguage')('de');
+});
+
 /* ================= Ausgabe ================= */
 (async () => {
 for (const [label, fn] of queue) {
   try { await fn(); await flush(); await flush(); results.push(['ok', label]); }
   catch (e) { results.push(['fail', label + ' -> ' + e.message]); }
 }
-console.log('─'.repeat(61));
+if (!LITE_RUN) console.log('─'.repeat(61));
 let failed = 0;
 results.forEach(([s, m]) => {
   if (s === 'ok') console.log('  \u2713 ' + m);
   else { failed++; console.log('  \u2717 ' + m); }
 });
+
+if (LITE_RUN) {
+  /* Kindlauf: nur Rohergebnis, die Zusammenfassung macht der Elternlauf. */
+  console.log('##LITE ' + failed + ' ' + results.length);
+  process.exit(failed ? 1 : 0);
+}
+
+let gesamt = results.length;
+try {
+  const ausgabe = execFileSync(process.execPath, [__filename], {
+    env: Object.assign({}, process.env, { FAIRMIX_LITE: '1' }),
+    encoding: 'utf8'
+  });
+  gesamt += verarbeiteLite(ausgabe);
+} catch (e) {
+  /* execFileSync wirft bei Rueckgabewert ungleich 0 – die Ausgabe des
+     Kindes haengt am Fehlerobjekt und ist genau das, was hier zaehlt.
+     Ein Absturz ohne Ausgabe ist selbst ein Fehler und wird gemeldet. */
+  const ausgabe = (e.stdout || '') + (e.stderr || '');
+  if (ausgabe.indexOf('##LITE') === -1) {
+    console.log('  \u2717 Lite-Lauf abgestuerzt -> ' + String(e.message).split('\n')[0]);
+    failed++;
+    gesamt++;
+  } else {
+    gesamt += verarbeiteLite(ausgabe);
+  }
+}
+
+function verarbeiteLite(ausgabe) {
+  let zahl = 0;
+  ausgabe.split('\n').forEach(zeile => {
+    const m = zeile.match(/^##LITE (\d+) (\d+)$/);
+    if (m) { failed += Number(m[1]); zahl = Number(m[2]); return; }
+    if (zeile.trim()) console.log(zeile);
+  });
+  return zahl;
+}
+
 console.log('─'.repeat(61));
-console.log(failed ? failed + ' ABLAUF-FEHLER' : results.length + ' Abläufe fehlerfrei');
+console.log(failed ? failed + ' ABLAUF-FEHLER' : gesamt + ' Abläufe fehlerfrei');
 process.exit(failed ? 1 : 0);
 })();

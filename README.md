@@ -78,6 +78,25 @@ Falls doch einmal deinstalliert werden muss: vorher in der App unter
 - [ ] Screenshots (Handy und Tablet), Feature-Grafik 1024×500, Store-Icon 512×512
 - [ ] Bei jedem Upload `version` **und** `android-versionCode` in `config.xml` erhöhen
 
+## Lite und Pro
+
+Beide Play-Store-Einträge entstehen aus demselben Commit. Im Wurzelverzeichnis
+liegt immer die Pro-Fassung (`const IS_LITE = false;`).
+
+    ./build-lite.sh          # erzeugt lite/ und prüft es
+    ./build-lite.sh --ohne-icons
+
+Das Skript legt den Schalter um und ändert Paketkennung (`de.fairmix.lite`),
+Anzeigename, Service-Worker-Cache und Icons. Alles andere wird kopiert.
+`make-lite-icons.py` setzt das LITE-Band auf die vorhandenen Icons – es braucht
+Pillow (`pip install Pillow`).
+
+Der GitHub-Workflow baut beide Fassungen als Matrix. Die Artefakte heißen
+`FairMix-pro-…` und `FairMix-lite-…`.
+
+**Reihenfolge:** Erst Pro veröffentlichen, dann Lite. Der Umstiegsknopf in
+Lite öffnet den Store-Eintrag von Pro – vorher zeigt er ins Leere.
+
 ## Version
 
-1.5.1 (versionCode 10501)
+1.20.0 (versionCode 12000)
