@@ -1,4 +1,3 @@
-
 name: Build FairMix (Android)
 
 on:
@@ -216,4 +215,3 @@ jobs:
           name: FairMix-${{ matrix.edition }}-release-aab
           path: build/platforms/android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
-      
