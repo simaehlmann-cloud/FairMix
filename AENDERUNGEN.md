@@ -1,3 +1,29 @@
+# FairMix 1.22.1 – Glücksrad im Gruppenpuzzle
+
+248 Abläufe, Validator, Stresstest und Lite-Build grün. Cache `fairmix-v34`.
+
+Aus dem Alltag gemeldet: Beim Ziehen einer Stammgruppe zeigte das Rad
+sechsmal „Stammgrupp…" – alle Segmente sahen gleich aus, die Nummer war
+weggekürzt. Das Unterscheidende steht bei diesen Namen am Ende.
+
+**Behoben in zwei Stufen.** Die lange Form kürzt jetzt aus der Mitte und
+lässt das letzte kurze Wort stehen: „Stammgru… 1". Die Kurzform bei mehr
+als 16 Segmenten nimmt eine abschließende Zahl vollständig mit: „S12"
+statt „S1".
+
+Der zweite Teil war ein **schon vorher vorhandener Fehler**, nicht neu vom
+Gruppenpuzzle. „Testperson 1" und „Testperson 11" ergaben beide „T1" – auf
+einem Rad mit 17 Namen also zwei ununterscheidbare Segmente.
+
+Der bestehende Ablauf dazu hat das nicht bemerkt, weil er nur die Länge
+prüfte („höchstens zwei Zeichen"). Er hielt damit die Kollision fest,
+statt sie zu finden. Jetzt prüft er, worauf es ankommt: kurz **und**
+unterscheidbar.
+
+Zwei Mutationen blieben im ersten Anlauf durch, weil meine Zusagen zu grob
+waren – eine halbierte Zahl und ein Bruchstück vor der Nummer fielen nicht
+auf. Beide Fälle sind jetzt eigens belegt.
+
 # FairMix 1.21.2 – Gruppenpuzzle aufgeräumt
 
 245 Abläufe, Validator und Stresstest grün, Lite-Build ebenso.
@@ -240,7 +266,7 @@ langen Themennamen, Präsentationsmodus mit fünf Themen, Bild-Export.
 ## Prüfung vor dem Push
 
     node validate.js      # Struktur, Offline, Rechtstexte, Versionen, Lite-Schalter
-    node smoketest.js     # 245 Abläufe – ruft sich selbst als Lite erneut auf
+    node smoketest.js     # 248 Abläufe – ruft sich selbst als Lite erneut auf
     node stresstest.js    # 3000 Gruppenbildungen
     ./mutate.sh           # nach einer eingebauten Mutation aufrufen
     ./build-lite.sh       # erzeugt lite/ und prüft es mit FAIRMIX_LITE=1

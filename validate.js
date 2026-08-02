@@ -230,15 +230,6 @@ else {
   else O(`Alle ${ausJs.size} vom Skript gesetzten Klassen sind im CSS definiert`);
 }
 
-/* ---------- 12a3. Gedämpfte Bereiche klappen wirklich zu ---------- */
-if (/muteBox/.test(js)) {
-  if (!/\.muted-box\s*>\s*\*:not\(h3\)[^{]*\{[^}]*display\s*:\s*none/.test(css))
-    E('.muted-box klappt den Inhalt nicht weg – gedämpfte Bereiche blieben in voller Länge stehen');
-  else if (!/\.muted-box\s*>\s*\*:not\(h3\):not\(\.mute-tag\)/.test(css))
-    E('.muted-box blendet auch die eigene Marke aus');
-  else O('Gedämpfte Bereiche zeigen Überschrift und Marke, sonst nichts');
-}
-
 /* ---------- 12b. Versionsnummern stimmen überein ---------- */
 /* Drei Stellen nennen dieselbe Version. Liefen sie auseinander, zeigte
    die App im Store eine andere Nummer als unter "Über FairMix" – und der

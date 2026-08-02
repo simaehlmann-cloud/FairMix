@@ -732,7 +732,11 @@ check('Viele Namen: das Rad zeigt Initialen', () => {
   g('renderWheel')('draw');
   assert($('wheelNote').hidden === false, 'Hinweis auf Initialen fehlt');
   const texte = $('wheelRotor').children.filter(c => c.tagName === 'TEXT');
-  assert(texte.every(x => x.textContent.length <= 2), 'Rad zeigt noch volle Namen');
+  const kurz = texte.map(x => x.textContent);
+  assert(kurz.every(x => x.length <= 4), 'Rad zeigt noch volle Namen: ' + kurz.join(' | '));
+  /* Kurz allein genügt nicht – die Segmente müssen auch auseinanderzuhalten
+     sein. "Testperson 1" und "Testperson 11" ergaben früher beide "T1". */
+  assert(new Set(kurz).size === kurz.length, 'Segmente nicht unterscheidbar: ' + kurz.join(' | '));
 });
 
 check('Gewichtung bleibt bei 3:1 gedeckelt', () => {
@@ -2702,7 +2706,7 @@ function puzzleAufbau(anzahl) {
     $('nameInput').value = 'P' + i;
     g('addName')();
   }
-  vm.runInContext("features.jigsaw = true; features.roles = false;", ctx);
+  vm.runInContext("features.jigsaw = true; features.roles = false; teamMode = 'jigsaw';", ctx);
 }
 
 function themen(n) {
@@ -2866,6 +2870,113 @@ check('Das Thema steht an der Person, aber nur in der Stammansicht', () => {
   g('switchJigsawView')('home');
 });
 
+check('Immer nur ein Bauweg: automatisch oder Gruppenpuzzle', () => {
+  puzzleAufbau(12);
+  vm.runInContext("features.rules = true; features.fixed = true; features.levels = true;", ctx);
+
+  g('chooseTeamMode')('auto');
+  assert($('autoTeamsBox').hidden === false, 'automatischer Weg verborgen');
+  assert($('featureJigsaw').hidden === true, 'Puzzle-Feld im automatischen Weg sichtbar');
+  assert($('teamsPageTitle').textContent === g('t')('titleTeams'),
+         'Überschrift: ' + $('teamsPageTitle').textContent);
+
+  g('chooseTeamMode')('jigsaw');
+  assert($('autoTeamsBox').hidden === true, 'Anzahl und Größe bleiben im Puzzle stehen');
+  assert($('featureJigsaw').hidden === false, 'Puzzle-Feld fehlt');
+  assert($('teamsPageTitle').textContent === g('t')('titleJigsaw'),
+         'Überschrift: ' + $('teamsPageTitle').textContent);
+
+  /* Regeln, Stufen und fixierte Personen liegen in autoTeamsBox und
+     verschwinden mit ihm – ohne eigene Sonderbehandlung. */
+  ['featureRules', 'featureFixed', 'featureLevels', 'featureLevelMode'].forEach(id => {
+    assert($(id).hidden === false, id + ' einzeln ausgeblendet statt mit dem Kasten');
+  });
+});
+
+check('Der Bauweg bleibt beim Rückgängigmachen stehen', () => {
+  /* Ein Blickwechsel gehört nicht in den Verlauf: "Rückgängig" darf die
+     Seite nicht unter der Hand umschalten. */
+  puzzleAufbau(12);
+  g('chooseTeamMode')('jigsaw');
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+
+  g('chooseTeamMode')('auto');
+  g('performUndo')();
+  assert(g('teamMode') === 'auto', 'Rückgängig hat den Bauweg umgeschaltet: ' + g('teamMode'));
+  assert(g('jigsawMode')() === false, 'Puzzle-Ansicht kam von selbst zurück');
+});
+
+check('Der Moduswechsel lässt gebaute Gruppen unangetastet', () => {
+  puzzleAufbau(12);
+  g('chooseTeamMode')('jigsaw');
+  $('jigsawTopics').value = 'A\nB\nC';
+  g('generateJigsaw')();
+  const vorher = JSON.stringify(g('jigsaw'));
+
+  g('chooseTeamMode')('auto');
+  assert(JSON.stringify(g('jigsaw')) === vorher, 'Puzzle beim Blickwechsel verändert');
+  assert($('jigsawSwitchRow').hidden === false, 'Umschalter verschwindet mit dem Modus');
+
+  g('chooseTeamMode')('jigsaw');
+  assert(JSON.stringify(g('jigsaw')) === vorher, 'Puzzle beim Zurückwechseln verändert');
+});
+
+check('Ohne die Funktion gibt es keine Moduswahl', () => {
+  puzzleAufbau(12);
+  vm.runInContext("features.jigsaw = false;", ctx);
+  g('renderAll')();
+  assert($('teamModeRow').hidden === true, 'Moduswahl sichtbar');
+  assert($('autoTeamsBox').hidden === false, 'automatischer Weg verborgen');
+  assert(g('jigsawMode')() === false, 'jigsawMode meldet true');
+
+  /* Der gespeicherte Weg bleibt stehen und ist nach dem Einschalten wieder da. */
+  g('chooseTeamMode')('jigsaw');
+  assert(g('teamMode') === 'jigsaw', 'gespeicherter Weg überschrieben');
+  vm.runInContext("features.jigsaw = true;", ctx);
+  g('renderAll')();
+  assert(g('jigsawMode')() === true, 'Weg nach dem Einschalten nicht wiederhergestellt');
+});
+
+
+check('Der Bauweg übersteht Speichern und Laden', () => {
+  puzzleAufbau(12);
+  g('chooseTeamMode')('jigsaw');
+  g('saveState')();
+  vm.runInContext("teamMode = 'auto';", ctx);
+  g('loadState')();
+  assert(g('teamMode') === 'jigsaw', 'Bauweg nach dem Laden: ' + g('teamMode'));
+});
+
+check('Das Glücksrad zeigt, welche Gruppe gemeint ist', () => {
+  /* Aus dem Alltag: sechs Segmente "Stammgrupp…" sahen alle gleich aus.
+     Das Unterscheidende steht am Ende und muss stehen bleiben. */
+  const w = g('wheelLabel');
+  const kurz = [1, 2, 3, 4, 5, 6].map(n => w('Stammgruppe ' + n, false));
+  assert(new Set(kurz).size === 6, 'nicht unterscheidbar: ' + kurz.join(' | '));
+  kurz.forEach((k, i) => assert(k.endsWith(String(i + 1)), 'Nummer fehlt: ' + k));
+  kurz.forEach(k => assert(k.length <= 11, 'zu lang für ein Segment: ' + k));
+  /* Abgeschnitten wird an der Wortgrenze. Sonst bliebe ein Rest des
+     gekürzten Wortes stehen: "Stammgr…e 1" statt "Stammgru… 1". */
+  kurz.forEach(k => assert(/…\s\d+$/.test(k), 'Bruchstück vor der Nummer: ' + k));
+
+  /* Kurzform bei vielen Segmenten: die Nummer muss vollständig bleiben,
+     sonst werden "Stammgruppe 1" und "Stammgruppe 12" beide zu "S1". */
+  const knapp = [1, 2, 11, 12, 21].map(n => w('Stammgruppe ' + n, true));
+  assert(new Set(knapp).size === 5, 'Kurzform nicht unterscheidbar: ' + knapp.join(' | '));
+  assert(w('Stammgruppe 12', true) === 'S12', 'Kurzform: ' + w('Stammgruppe 12', true));
+  /* Dreistellig, damit auch eine halbierte Zahl auffällt: bei nur einer
+     Ziffer würde aus "Stammgruppe 123" ein "S13". */
+  assert(w('Stammgruppe 123', true) === 'S123', 'Kurzform: ' + w('Stammgruppe 123', true));
+  assert(w('Photosynthese', true) === 'P', 'Kurzform ohne Zahl: ' + w('Photosynthese', true));
+  assert(w('Die Ritter', true) === 'DR', 'Kurzform zweier Wörter: ' + w('Die Ritter', true));
+  assert(w('7', true) === '7', 'reine Zahl: ' + w('7', true));
+
+  assert(w('Wasser', false) === 'Wasser', 'kurzer Name gekürzt');
+  assert(new Set(['Photosynthese', 'Photosystem II'].map(x => w(x, false))).size === 2,
+         'lange Themen nicht unterscheidbar');
+});
+
 check('Der Umschalter erscheint erst mit einem gebildeten Puzzle', () => {
   puzzleAufbau(12);
   g('renderAll')();
@@ -2884,11 +2995,15 @@ check('Der Umschalter erscheint erst mit einem gebildeten Puzzle', () => {
 
 check('Ausgeschaltetes Gruppenpuzzle blendet Bereich und Umschalter aus', () => {
   puzzleAufbau(12);
+  g('chooseTeamMode')('jigsaw');
   $('jigsawTopics').value = 'A\nB\nC';
   g('generateJigsaw')();
   assert($('featureJigsaw').hidden === false, 'Vorbedingung: Bereich unsichtbar');
 
   vm.runInContext("features.jigsaw = false;", ctx);
+  g('renderAll')();
+  assert($('teamModeRow').hidden === true, 'Moduswahl trotz Abschaltung sichtbar');
+  assert($('autoTeamsBox').hidden === false, 'automatischer Weg bleibt verschwunden');
   g('renderAll')();
   assert($('featureJigsaw').hidden === true, 'Puzzle-Bereich trotz Abschaltung sichtbar');
   assert($('jigsawSwitchRow').hidden === true, 'Umschalter trotz Abschaltung sichtbar');
@@ -2896,77 +3011,8 @@ check('Ausgeschaltetes Gruppenpuzzle blendet Bereich und Umschalter aus', () => 
   vm.runInContext("features.jigsaw = true;", ctx);
 });
 
-check('Bereiche ohne Wirkung verschwinden, solange ein Puzzle steht', () => {
-  puzzleAufbau(12);
-  vm.runInContext("features.rules = true; features.fixed = true; features.levels = true; features.partners = true;", ctx);
-  g('renderAll')();
-  ['featureRules', 'featureFixed', 'featureLevels', 'featurePartners'].forEach(id => {
-    assert($(id).hidden === false, id + ' schon ohne Puzzle ausgeblendet');
-  });
 
-  $('jigsawTopics').value = 'A\nB\nC';
-  g('generateJigsaw')();
-  const betroffen = ['featureRules', 'featureFixed', 'featureLevels', 'featurePartners', 'featureLevelMode'];
-  betroffen.forEach(id => {
-    /* Gedämpft, nicht entfernt: die Überschrift bleibt als Orientierung
-       stehen, der Inhalt klappt weg. */
-    assert($(id).hidden === false, id + ' wurde entfernt statt gedämpft');
-    assert($(id).classList.contains('muted-box'), id + ' nicht gedämpft');
-    assert($(id).getAttribute('aria-disabled') === 'true', id + ' meldet sich nicht als wirkungslos');
-    const marke = $(id).querySelector('.mute-tag');
-    assert(marke && marke.textContent === g('t')('tagNoEffectJigsaw'),
-           id + ' ohne Marke in der Überschrift');
-  });
 
-  /* Zweimal rendern darf die Marke nicht verdoppeln. */
-  g('renderAll')();
-  assert($('featureRules').querySelectorAll('.mute-tag').length === 1,
-         'Marke doppelt nach erneutem Rendern');
-
-  /* Gruppen generieren beendet das Puzzle – dann sind sie wieder normal. */
-  $('teamCount').value = '3'; $('teamSize').value = '';
-  g('generateTeams')();
-  betroffen.forEach(id => {
-    assert($(id).hidden === false, id + ' bleibt nach dem Puzzle verschwunden');
-    assert(!$(id).classList.contains('muted-box'), id + ' bleibt gedämpft');
-    assert($(id).getAttribute('aria-disabled') === 'false', id + ' meldet sich weiter als wirkungslos');
-    assert($(id).querySelector('.mute-tag') === null, id + ' behält die Marke');
-  });
-  assert($('jigsawSwitchRow').hidden === true, 'Umschalter überlebt Gruppen generieren');
-});
-
-check('Abgeschaltete Bereiche bleiben auch im Puzzle weg', () => {
-  /* Gedämpft heißt sichtbar. Wer den Bereich in den Einstellungen
-     ausgeschaltet hat, darf ihn trotzdem nicht zu sehen bekommen. */
-  puzzleAufbau(12);
-  vm.runInContext("features.rules = false; features.levels = false;", ctx);
-  $('jigsawTopics').value = 'A\nB\nC';
-  g('generateJigsaw')();
-  assert($('featureRules').hidden === true, 'ausgeschalteter Regelbereich taucht auf');
-  assert($('featureLevels').hidden === true, 'ausgeschalteter Stufenbereich taucht auf');
-  assert($('featureLevelMode').hidden === true, 'Stufenmischung taucht auf');
-  vm.runInContext("features.rules = true; features.levels = true;", ctx);
-});
-
-check('Die Marke übersteht den Sprachwechsel', () => {
-  puzzleAufbau(12);
-  $('jigsawTopics').value = 'A\nB\nC';
-  g('generateJigsaw')();
-
-  /* setLanguage setzt textContent aller [data-i18n]-Elemente neu. Läge
-     die Marke in der Überschrift, wäre sie danach weg. */
-  g('setLanguage')('en');
-  assert($('featureRules').querySelector('.mute-tag') !== null,
-         'Marke vom Sprachwechsel gelöscht');
-
-  g('setLanguage')('de');
-  g('chooseLanguage')('en');
-  const marke = $('featureRules').querySelector('.mute-tag');
-  assert(marke && marke.textContent === g('t')('tagNoEffectJigsaw'),
-         'Marke nach Sprachwechsel: ' + (marke ? marke.textContent : 'fehlt'));
-  assert(marke.textContent !== 'beim Puzzle ohne Wirkung', 'Marke blieb deutsch');
-  g('chooseLanguage')('de');
-});
 
 check('Gruppen verwerfen beendet das Puzzle ebenfalls', async () => {
   puzzleAufbau(12);

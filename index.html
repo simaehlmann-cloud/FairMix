@@ -148,20 +148,6 @@ h3 { font-size: clamp(17px, 4vw, 21px); margin: var(--sp-6) 0 var(--sp-3); }
    waehrend die Logik sie fuer versteckt haelt. */
 [hidden] { display: none !important; }
 
-/* Bereiche, die im Gruppenpuzzle keine Wirkung haben: Ueberschrift bleibt
-   stehen, damit die Seite ihre Ordnung behaelt, der Inhalt klappt weg.
-   Vier ausgegraute Bloecke in voller Laenge waeren auf dem Handy nur
-   toter Scrollweg zwischen dem Puzzle und den Gruppen. */
-.muted-box { opacity: 0.55; }
-.muted-box > *:not(h3):not(.mute-tag) { display: none; }
-.mute-tag {
-  display: inline-block; margin-left: 8px; padding: 1px 8px;
-  border-radius: 999px; background: var(--accent-soft, #dbe9ff);
-  color: var(--accent-strong, #003366);
-  font-size: 12px; font-weight: 700; vertical-align: middle;
-}
-.muted-box .mute-tag { display: inline-block; margin: 0 0 4px; }
-.dark-mode .mute-tag { background: #16324f; color: #cfe4ff; }
 
 .btn-row { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-1); }
 
@@ -906,7 +892,14 @@ body.dark-mode .text-link { color: var(--border-color); }
 <!-- ======================= GRUPPEN ZUFÄLLIG ====================== -->
 <div id="pageTeams" class="page">
  <div class="wrap">
-  <h2 data-i18n="titleTeams">Automatische Gruppenerstellung</h2>
+  <h2 id="teamsPageTitle" data-i18n="titleTeams">Automatische Gruppenerstellung</h2>
+
+  <div id="teamModeRow" class="btn-row" hidden>
+    <button id="modeAuto"   class="btn blue" onclick="chooseTeamMode('auto')"   data-i18n="modeAuto">Automatisch</button>
+    <button id="modeJigsaw" class="btn blue" onclick="chooseTeamMode('jigsaw')" data-i18n="modeJigsaw">Gruppenpuzzle</button>
+  </div>
+
+  <div id="autoTeamsBox">
   <button class="btn purple feature-roles" onclick="openRoleModal()" data-i18n="btnManageRoles">Rollen verwalten</button>
 
   <div class="field-row">
@@ -935,14 +928,6 @@ body.dark-mode .text-link { color: var(--border-color); }
   <p class="hint" data-i18n="hintLevelWhere">Die Stufen selbst vergibst du unter „Namen verwalten“.</p>
   </div>
 
-  <div id="featureJigsaw">
-  <h3 data-i18n="titleJigsaw">Gruppenpuzzle</h3>
-  <p class="hint" data-i18n="hintJigsaw">Ein Thema je Zeile. Jede Stammgruppe bekommt einen Kopf pro Thema, die Expertengruppen sammeln alle zum selben Thema.</p>
-  <textarea id="jigsawTopics" rows="4" placeholder="Thema 1&#10;Thema 2&#10;Thema 3" data-i18n-placeholder="placeholderJigsawTopics" oninput="updateJigsawPreview()"></textarea>
-  <p id="jigsawPreview" class="hint" aria-live="polite"></p>
-  <button class="btn green" onclick="generateJigsaw()" data-i18n="btnJigsaw">Gruppenpuzzle bilden</button>
-  <p class="hint" data-i18n="hintJigsawLocked">Regeln, fixierte Personen und Stufen bleiben beim Gruppenpuzzle außen vor – die Themen bestimmen die Zusammensetzung.</p>
-  </div>
 
   <div id="featurePartners">
   <h3 data-i18n="titlePartners">Partnerhistorie</h3>
@@ -968,7 +953,20 @@ body.dark-mode .text-link { color: var(--border-color); }
 
   <div class="btn-row">
     <button class="btn blue" onclick="generateTeams()" data-i18n="btnGenerateTeams">Gruppen generieren</button>
-    <button class="btn red"  onclick="resetTeams()" data-i18n="btnResetTeams">Gruppen verwerfen</button>
+  </div>
+  </div><!-- /autoTeamsBox -->
+
+  <div id="featureJigsaw">
+  <h3 data-i18n="titleJigsaw">Gruppenpuzzle</h3>
+  <p class="hint" data-i18n="hintJigsaw">Ein Thema je Zeile. Jede Stammgruppe bekommt einen Kopf pro Thema, die Expertengruppen sammeln alle zum selben Thema.</p>
+  <textarea id="jigsawTopics" rows="4" placeholder="Thema 1&#10;Thema 2&#10;Thema 3" data-i18n-placeholder="placeholderJigsawTopics" oninput="updateJigsawPreview()"></textarea>
+  <p id="jigsawPreview" class="hint" aria-live="polite"></p>
+  <button class="btn green" onclick="generateJigsaw()" data-i18n="btnJigsaw">Gruppenpuzzle bilden</button>
+  <p class="hint" data-i18n="hintJigsawLocked">Regeln, fixierte Personen und Stufen bleiben beim Gruppenpuzzle außen vor – die Themen bestimmen die Zusammensetzung.</p>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn red" onclick="resetTeams()" data-i18n="btnResetTeams">Gruppen verwerfen</button>
   </div>
 
   <h3 data-i18n="titleCreatedTeams">Erstellte Gruppen</h3>
@@ -1125,7 +1123,7 @@ body.dark-mode .text-link { color: var(--border-color); }
 /* =================================================================
    FairMix Pro
    ================================================================= */
-const APP_VERSION = "1.21.2";
+const APP_VERSION = "1.22.1";
 
 /* -------------------------------------------------
    0  Fassung: Lite oder Pro
@@ -1234,7 +1232,7 @@ const i18n = {
     featJigsawHint: "Stamm- und Expertengruppen nach Themen bilden",
     titleJigsaw: "Gruppenpuzzle",
     hintJigsaw: "Ein Thema je Zeile. Jede Stammgruppe bekommt einen Kopf pro Thema, die Expertengruppen sammeln alle zum selben Thema.",
-    hintJigsawLocked: "Regeln, fixierte Personen und Stufen bleiben beim Gruppenpuzzle außen vor – die Themen bestimmen die Zusammensetzung.",
+    hintJigsawLocked: "Regeln, fixierte Personen und Stufen gibt es hier nicht – beim Gruppenpuzzle bestimmen die Themen, wer wohin kommt. Zurück geht es oben über „Automatisch“.",
     placeholderJigsawTopics: "Thema 1\nThema 2\nThema 3",
     btnJigsaw: "Gruppenpuzzle bilden",
     btnJigsawHome: "Stammgruppen",
@@ -1250,8 +1248,9 @@ const i18n = {
     msgJigsawWarnSmall: "Es reicht nur für eine Stammgruppe – jede Expertengruppe hätte eine Person. Nimm weniger Themen.",
     msgJigsawDone: "Gruppenpuzzle gebildet.",
     hintJigsawActive: "Gruppenpuzzle aktiv – die Themen bestimmen die Einteilung. „Gruppen generieren“ oder „Gruppen verwerfen“ beendet das Puzzle.",
-    tagNoEffectJigsaw: "beim Puzzle ohne Wirkung",
     msgTopicDuplicate: "Dieses Thema gibt es schon.",
+    modeAuto: "Automatisch",
+    modeJigsaw: "Gruppenpuzzle",
     titleDemo: "Erst einmal ausprobieren?",
     hintDemo: "Lädt eine Beispielklasse mit 24 Namen, Stufen und zwei Regeln. So siehst du alles in Aktion, ohne etwas zu tippen.",
     btnLoadDemo: "Beispielklasse laden",
@@ -1557,7 +1556,7 @@ const i18n = {
     featJigsawHint: "Build home and expert groups from topics",
     titleJigsaw: "Jigsaw method",
     hintJigsaw: "One topic per line. Every home group gets one person per topic; each expert group collects everyone on the same topic.",
-    hintJigsawLocked: "Rules, fixed persons and levels stay out of the jigsaw \u2013 the topics decide who goes where.",
+    hintJigsawLocked: "There are no rules, fixed persons or levels here \u2013 in the jigsaw the topics decide who goes where. Use \u201cAutomatic\u201d above to go back.",
     placeholderJigsawTopics: "Topic 1\nTopic 2\nTopic 3",
     btnJigsaw: "Build jigsaw groups",
     btnJigsawHome: "Home groups",
@@ -1573,8 +1572,9 @@ const i18n = {
     msgJigsawWarnSmall: "That is only enough for one home group \u2013 each expert group would have one person. Use fewer topics.",
     msgJigsawDone: "Jigsaw groups created.",
     hintJigsawActive: "Jigsaw active \u2013 the topics decide the arrangement. \u201cGenerate groups\u201d or \u201cDiscard groups\u201d ends the jigsaw.",
-    tagNoEffectJigsaw: "no effect in the jigsaw",
     msgTopicDuplicate: "That topic already exists.",
+    modeAuto: "Automatic",
+    modeJigsaw: "Jigsaw",
     titleDemo: "Want to try it out first?",
     hintDemo: "Loads a sample class with 24 names, levels and two rules. That way you can see everything in action without typing anything.",
     btnLoadDemo: "Load sample class",
@@ -1870,6 +1870,10 @@ let teams         = [];
    eine – sie wird nach teams gespiegelt, damit Darstellung, Ziehen,
    Praesentation und Export unveraendert weiterlaufen. */
 let jigsaw        = null;
+/* Welcher Bauweg gerade offen ist: 'auto' oder 'jigsaw'. Nur eine Ansicht
+   gleichzeitig – Anzahl/Groesse und Themen nebeneinander waren nicht zu
+   verstehen. Der Wechsel ist folgenlos: gebaute Gruppen bleiben stehen. */
+let teamMode      = 'auto';
 let teamNames     = [];
 let fixedPersons  = [];
 let pairRules     = { together: [], apart: [] };
@@ -1968,7 +1972,7 @@ function roleDesc(r) { return typeof r.desc === 'object' ? (r.desc[currentLang] 
 
 function saveState() {
   const state = {
-    originalNames, presentNames, absentNames, groups, teams, teamNames, jigsaw,
+    originalNames, presentNames, absentNames, groups, teams, teamNames, jigsaw, teamMode,
     fixedPersons, customRoles, activeRoleIds, drawnGroups, pairRules, drawCounts, pairHistory, features,
     currentClass,
     levels, levelMode, drawStyle, fairDraw, lastBackup, backupNagOff,
@@ -2059,6 +2063,7 @@ function loadState() {
        einer fremden Sicherung stammen. Haelt es der Pruefung nicht stand,
        wird es verworfen – die Gruppen selbst bleiben erhalten. */
     jigsaw = validJigsaw(s.jigsaw) ? s.jigsaw : null;
+    teamMode = (s.teamMode === 'jigsaw') ? 'jigsaw' : 'auto';
   }
 
   const stored = localStorage.getItem("fairmix_theme");
@@ -2248,6 +2253,8 @@ function updateSettingsUI() {
   mark("choiceThemeDark",  themeMode === "dark");
   mark("choiceDrawTicker", drawStyle === "ticker");
   mark("choiceDrawWheel",  drawStyle === "wheel");
+  mark("modeAuto",   !jigsawMode());
+  mark("modeJigsaw",  jigsawMode());
   mark("jigsawViewHome",   jigsawActive() && jigsaw.view === 'home');
   mark("jigsawViewExpert", jigsawActive() && jigsaw.view === 'expert');
   mark("choiceLevelOff",    levelMode === "off");
@@ -2381,31 +2388,6 @@ function openProStore() {
   }
 }
 
-/* Klappt einen Bereich zusammen und markiert ihn als wirkungslos, ohne
-   ihn zu entfernen. Die Ueberschrift bleibt als Orientierung stehen.
-
-   Die Marke haengt am Kasten, nicht in der Ueberschrift: setLanguage()
-   setzt bei jedem Sprachwechsel textContent aller [data-i18n]-Elemente
-   und wuerde eingehaengte Kinder dabei loeschen. Sichtbar bleibt sie
-   trotz zugeklapptem Inhalt ueber die CSS-Ausnahme fuer .mute-tag –
-   sie steht damit direkt unter der Ueberschrift.
-
-   Kein disabled am Kasten: die Ueberschrift soll vorlesbar bleiben. */
-function muteBox(id, gedaempft) {
-  const box = document.getElementById(id);
-  if (!box) return;
-  box.classList.toggle("muted-box", gedaempft);
-  box.setAttribute("aria-disabled", gedaempft ? "true" : "false");
-
-  let marke = box.querySelector(".mute-tag");
-  if (gedaempft) {
-    if (!marke) { marke = el("span", { className: "mute-tag" }); box.appendChild(marke); }
-    marke.textContent = t('tagNoEffectJigsaw');
-  } else if (marke) {
-    box.removeChild(marke);
-  }
-}
-
 function applyFeatureVisibility() {
   const set = (id, on) => { const n = document.getElementById(id); if (n) n.hidden = !on; };
   set("featureData",  featureOn('data'));
@@ -2413,17 +2395,24 @@ function applyFeatureVisibility() {
      Zusammensetzung. Regeln, fixierte Personen, Stufen und die
      Partnerhistorie haetten dort keine Wirkung – sichtbar zu bleiben
      waere ein Versprechen, das die App nicht einloest. */
-  const puzzle = jigsawActive();
+  const imPuzzle = jigsawMode();
   set("featureFixed", featureOn('fixed'));
   set("featureRules", featureOn('rules'));
   set("featureLevels", featureOn('levels'));
   set("featurePartners", featureOn('partners'));
   set("featureLevelMode", featureOn('levels'));
-  ['featureFixed', 'featureRules', 'featureLevels', 'featurePartners', 'featureLevelMode']
-    .forEach(id => muteBox(id, puzzle));
-  set("featureJigsaw",   featureOn('jigsaw'));
-  set("jigsawSwitchRow", puzzle);
-  set("jigsawActiveHint", puzzle);
+
+  /* Immer nur ein Bauweg. Die Regeln, Stufen und fixierten Personen
+     liegen in autoTeamsBox und verschwinden mit ihm – sie haetten im
+     Puzzle keine Wirkung. */
+  set("teamModeRow",  featureOn('jigsaw'));
+  set("autoTeamsBox", !imPuzzle);
+  set("featureJigsaw", imPuzzle);
+  set("jigsawSwitchRow",  jigsawActive());
+  set("jigsawActiveHint", jigsawActive());
+
+  const kopf = document.getElementById("teamsPageTitle");
+  if (kopf) kopf.textContent = t(imPuzzle ? 'titleJigsaw' : 'titleTeams');
   set("settingsExport",  canExport());
   set("settingsBackup",  canImport());
   set("liteExportHint",  IS_LITE);
@@ -2572,6 +2561,11 @@ function canUndo() { return undoStack.length > 0; }
 let undoTimer = null;
 
 function takeSnapshot() {
+  /* Ohne teamMode: welcher Bauweg gerade offen ist, ist ein Blickwechsel
+     und keine Aenderung an den Gruppen. Ihn mitzusichern hiesse, dass
+     "Rueckgaengig" die Seite unter der Hand umschaltet – und geprueft
+     werden koennte es ohnehin nicht, weil chooseTeamMode bewusst kein
+     pushUndo macht. */
   return JSON.parse(JSON.stringify({
     originalNames, presentNames, absentNames, groups, teams, teamNames, jigsaw,
     fixedPersons, pairRules, drawCounts, drawnGroups, levels, pairHistory
@@ -4324,6 +4318,22 @@ function endJigsaw() {
 
 function jigsawActive() { return !!jigsaw && featureOn('jigsaw'); }
 
+/* Der Puzzle-Weg ist nur offen, wenn die Funktion eingeschaltet ist. Der
+   gespeicherte Wert bleibt trotzdem stehen: wer sie spaeter wieder
+   einschaltet, findet seinen Weg vor. */
+function jigsawMode() { return featureOn('jigsaw') && teamMode === 'jigsaw'; }
+
+function chooseTeamMode(modus) {
+  const neu = modus === 'jigsaw' ? 'jigsaw' : 'auto';
+  if (!featureOn('jigsaw') && neu === 'jigsaw') return;
+  if (teamMode === neu) return;
+  /* Bewusst ohne pushUndo und ohne endJigsaw: das ist ein Blickwechsel,
+     keine Aenderung an den Gruppen. */
+  teamMode = neu;
+  saveState();
+  renderAll();
+}
+
 /* Welche Marke rechts neben einem Namen steht. Ausgelagert, weil der
    Bild-Export auf Canvas zeichnet und im Test nicht nachzulesen ist –
    diese Entscheidung aber sehr wohl. Im Puzzle hat das Thema Vorrang;
@@ -5089,10 +5099,28 @@ function clearNode(node) {
 }
 
 function wheelLabel(text, short) {
-  if (!short) return text.length > 11 ? text.slice(0, 10) + "…" : text;
-  const parts = String(text).split(/[\s\-]+/).filter(Boolean);
+  if (!short) {
+    const s = String(text);
+    if (s.length <= 11) return s;
+    /* Aus der Mitte kuerzen, nicht hinten. Bei "Stammgruppe 1" bis
+       "Stammgruppe 6" steht das Unterscheidende am Ende – nur vorne zu
+       kuerzen machte alle Segmente des Gluecksrads gleich. Ein kurzes
+       letztes Wort (meist die Nummer) bleibt vollstaendig stehen. */
+    const m = s.match(/\s+(\S{1,4})$/);
+    const schwanz = m ? " " + m[1] : s.slice(-3);
+    const platz = Math.max(1, 10 - schwanz.length);
+    return s.slice(0, platz) + "…" + schwanz;
+  }
+  /* Kurzform bei vielen Segmenten: Anfangsbuchstaben. Endet der Name auf
+     eine Zahl, gehoert sie vollstaendig dazu – sonst wuerden aus
+     "Stammgruppe 1" und "Stammgruppe 12" beide "S1". */
+  const roh = String(text);
+  const zahl = roh.match(/(\d+)\s*$/);
+  const rumpf = zahl ? roh.slice(0, zahl.index) : roh;
+  const parts = rumpf.split(/[\s\-]+/).filter(Boolean);
   const ini = parts.slice(0, 2).map(w => w.charAt(0).toUpperCase()).join("");
-  return ini || String(text).charAt(0).toUpperCase();
+  const kopf = ini || rumpf.charAt(0).toUpperCase();
+  return zahl ? (kopf + zahl[1]) : (kopf || roh.charAt(0).toUpperCase());
 }
 
 function wheelPoint(deg, r) {
