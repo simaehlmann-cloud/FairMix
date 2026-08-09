@@ -37,14 +37,26 @@ jobs:
       # Muss zu android-targetSdkVersion in der config.xml passen.
       TARGET_SDK: '36'
 
+    # ---- Stand der Actions: August 2026 ----
+    # Alle Actions wurden von der Node-20- auf die Node-24-Laufzeit gehoben.
+    # GitHub hat die Runner am 16.06.2026 auf Node 24 umgestellt und entfernt
+    # Node 20 am 16.09.2026 ganz. Bis dahin liefen die alten Fassungen zwar
+    # noch, aber nur, weil der Runner sie zwangsweise auf Node 24 schob – ein
+    # Zustand, den GitHub selbst als "may not work as expected" bezeichnet.
+    # Zum Anheben immer erst pruefen, ob die neue Hauptversion mehr als die
+    # Laufzeit aendert (siehe setup-android unten).
     steps:
       - name: Repository auschecken
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
+      # node-version ist etwas anderes als die Laufzeit der Actions oben:
+      # hier laeuft die eigene Pruefkette. Node 20 hatte am 30.04.2026
+      # End-of-Life, deshalb 22 (LTS). Validator, Smoketest und Stresstest
+      # sind auf 22 nachgewiesen.
       - name: Node einrichten
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
 
       # Bewusst ganz vorne: Ein fehlerhafter Commit fällt so nach etwa einer
       # halben Minute durch, statt erst nach dem Herunterladen des Android-SDK.
@@ -67,13 +79,18 @@ jobs:
           ./build-lite.sh
 
       - name: Java einrichten
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
 
+      # v3 -> v4 ist der einzige Sprung, der mehr als die Laufzeit aendert:
+      # v4 stellt zugleich die Standard-cmdline-tools auf Version 20.0 um.
+      # Damit aendert sich das Werkzeug, mit dem der naechste Schritt die
+      # SDK-Pakete zieht. Der Schritt "Ziel-SDK bestaetigen" weiter unten
+      # faengt es ab, falls dabei nicht mehr API 36 herauskommt.
       - name: Android SDK bereitstellen
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: SDK-Pakete für API ${{ env.TARGET_SDK }} nachziehen
         run: |
@@ -137,7 +154,7 @@ jobs:
         run: cordova build android --debug -- --packageType=apk
 
       - name: Debug-APK hochladen
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: FairMix-${{ matrix.edition }}-debug-apk
           path: build/platforms/android/app/build/outputs/apk/debug/*.apk
@@ -202,7 +219,7 @@ jobs:
 
       - name: Signiertes APK hochladen
         if: steps.keystore.outputs.vorhanden == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: FairMix-${{ matrix.edition }}-release-apk
           path: build/platforms/android/app/build/outputs/apk/release/*.apk
@@ -210,7 +227,7 @@ jobs:
 
       - name: AAB hochladen
         if: steps.keystore.outputs.vorhanden == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: FairMix-${{ matrix.edition }}-release-aab
           path: build/platforms/android/app/build/outputs/bundle/release/*.aab
