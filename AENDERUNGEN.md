@@ -1,3 +1,39 @@
+# FairMix 1.22.1a – Prüfkette nachgezogen
+
+249 Abläufe, Validator, Stresstest und Lite-Build grün.
+Service-Worker-Cache: `fairmix-1.22.1`.
+
+Kein Verhalten der App geändert – nur das, was die Änderungen bewacht.
+
+**Eine maskierte Zusicherung gefunden.** Der Fall
+`{ home: [[{ name: 'X', topic: 99 }]] }` sollte belegen, dass ein
+Themenindex ins Leere nicht durchkommt. Er scheiterte aber schon eine
+Zeile vorher an der Kopfzahlprüfung, weil `home` nur einen Kopf hatte,
+`expert` dagegen zwölf. Entfernt man `m.topic < j.topics.length` aus
+`validJigsaw()`, bleiben alle 248 Abläufe grün. Drei neue Fälle setzen den
+Index jetzt bei unveränderten Kopfzahlen auf `topics.length` und auf `-1`.
+
+**Die 40-Zeichen-Grenze für Namen war unbelegt.** `addName()` und
+`parseNameBlob()` kürzen, kein Ablauf bewies es. Bei den Themen war die
+Grenze längst abgedeckt, bei den Namen nicht.
+
+**Der Cache-Name hing an nichts.** `fairmix-v34` neben `APP_VERSION
+1.22.1` – wer die Version anhebt und `sw.js` vergisst, liefert
+Rückkehrern der Webfassung weiter die alte Datei aus. Der Name trägt jetzt
+die Version, der Validator vergleicht beide. Im Play-Build spielt das keine
+Rolle: dort ist der Worker abgeschaltet.
+
+**Die Rechtstexte gibt es jetzt zweimal – aber nur eine Quelle.** Play
+verlangt eine öffentlich erreichbare Datenschutz-URL. Die liefert
+GitHub Pages aus `docs/`. Erzeugt wird der Ordner von
+`make-legal-pages.js` aus denselben Dateien, die in der App landen;
+geändert wird genau ein Verweis, weil es im Web keine `index.html` der
+App gibt. `validate.js` führt dieselbe Umformung im Speicher aus und
+vergleicht – eine Datenschutzerklärung, die im Store anders lautet als
+in der App, wäre eine Falschangabe, keine Unsauberkeit.
+
+Alle neun neuen Prüfungen sind durch Mutation belegt.
+
 # FairMix 1.22.1 – Glücksrad im Gruppenpuzzle
 
 248 Abläufe, Validator, Stresstest und Lite-Build grün. Cache `fairmix-v34`.

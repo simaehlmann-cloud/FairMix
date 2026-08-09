@@ -242,7 +242,19 @@ if (!appVer) E('APP_VERSION nicht gefunden');
 else if (appVer !== cfgVer) E(`Version weicht ab: APP_VERSION ${appVer}, config.xml ${cfgVer}`);
 else if (!readme.includes(appVer)) E(`README.md nennt Version ${appVer} nicht`);
 else if (cfgCode && !readme.includes(cfgCode)) E(`README.md nennt versionCode ${cfgCode} nicht`);
-else O(`Version ${appVer} (versionCode ${cfgCode}) überall gleich`);
+
+/* Der Cache-Name des Service Workers muss die Version mittragen. Bleibt er
+   beim Anheben stehen, holt der activate-Handler nichts weg und ein
+   Rückkehrer der Webfassung bekommt weiter die alte index.html. Im
+   Cordova-Build fällt das nicht auf – dort ist der Worker abgeschaltet. */
+const swCache = (sw.match(/const CACHE\s*=\s*'([^']+)'/) || [])[1];
+if (!swCache) E('sw.js ohne Cache-Namen');
+else if (!appVer) { /* schon oben gemeldet */ }
+else if (!swCache.endsWith(appVer))
+  E(`sw.js cached unter "${swCache}", die App meldet sich als ${appVer} – alte Dateien bleiben liegen`);
+
+if (appVer && cfgVer === appVer && readme.includes(appVer) && swCache && swCache.endsWith(appVer))
+  O(`Version ${appVer} (versionCode ${cfgCode}) überall gleich, auch im Cache-Namen`);
 
 /* ---------- 12c. Lite/Pro-Schalter ---------- */
 /* Mit FAIRMIX_LITE=1 prueft dieses Skript den erzeugten Lite-Build,
@@ -325,6 +337,36 @@ if (/ec\.europa\.eu\/consumers\/odr|OS-Plattform|Online-Streitbeilegung/.test(le
   E('Impressum verweist auf die abgeschaltete OS-Plattform (abmahnfähig)');
 if (!/§ 5 DDG/.test(legal['impressum.html'])) E('Impressum ohne Bezug auf § 5 DDG');
 if (!errors.some(e => /impressum|datenschutz|config\.xml nennt/.test(e))) O('Rechtstexte vollständig und widerspruchsfrei');
+
+/* ---------- 13b. Webfassung der Rechtstexte ---------- */
+/* docs/ wird von GitHub Pages ausgeliefert und ist die Adresse, die im
+   Play-Store-Eintrag steht. Sie entsteht aus denselben Dateien wie die
+   Fassung in der App. Läuft sie auseinander, zeigt der Store etwas
+   anderes als die App – bei einer Datenschutzerklärung kein
+   Schönheitsfehler, sondern eine Falschangabe. */
+/* Nur im Quellbaum. build-lite.sh legt kein docs/ an: die Rechtstexte im
+   Web gelten für beide Fassungen, und der Lite-Build hat mit der
+   veröffentlichten Adresse nichts zu tun. */
+if (istLite) {
+  O('Webfassung der Rechtstexte – im Lite-Build nicht geprüft');
+} else {
+  const legalGen = require('./make-legal-pages.js');
+  const proStore = (js.match(/const PRO_STORE_URL = "([^"]+)"/) || [])[1];
+  if (proStore && legalGen.STORE_URL !== proStore)
+    E(`make-legal-pages.js verweist auf ${legalGen.STORE_URL}, die App auf ${proStore}`);
+
+  const docsVeraltet = [];
+  try {
+    for (const [ziel, soll] of Object.entries(legalGen.erwarteteDateien())) {
+      if (!fs.existsSync(ziel)) { docsVeraltet.push(ziel + ' (fehlt)'); continue; }
+      if (fs.readFileSync(ziel, 'utf8') !== soll) docsVeraltet.push(ziel);
+    }
+  } catch (e) { docsVeraltet.push('nicht erzeugbar: ' + e.message); }
+
+  if (docsVeraltet.length)
+    E(`Webfassung veraltet – "node make-legal-pages.js" ausführen: ${docsVeraltet.join(', ')}`);
+  else O('Webfassung der Rechtstexte deckt sich mit der App');
+}
 
 /* ---------- 14. Android-Ressourcen kollisionsfrei ---------- */
 const colors = fs.readFileSync('res/android/colors.xml', 'utf8');

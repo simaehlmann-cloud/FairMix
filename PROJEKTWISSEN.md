@@ -47,11 +47,22 @@ aus `colors.xml` (`fairmix_icon_background`, #f4f8fc).
 
 ## Stand
 
-- Version 1.22.1, versionCode 12201, Service-Worker-Cache `fairmix-v34`
+- Version 1.22.1, versionCode 12201, Service-Worker-Cache `fairmix-1.22.1`
+  (Der Cache-Name trägt die Version; validate.js erzwingt das.)
 - Paketkennung Pro: `de.fairmix.app`   Lite: `de.fairmix.lite`
-- 248 Smoketests (Pro und Lite aus einer Quelle), Validator, Stresstest
-- Prüfkette: `node validate.js`, `node smoketest.js`, `node stresstest.js`,
+- 249 Smoketests (Pro und Lite aus einer Quelle), Validator, Stresstest
+- Prüfkette: `node make-legal-pages.js`, `node validate.js`, `node smoketest.js`,
+  `node stresstest.js`,
   `./mutate.sh` nach einer eingebauten Mutation, `./build-lite.sh`
+
+## Rechtstexte im Web
+
+`docs/` wird von GitHub Pages ausgeliefert und liefert die URL für den
+Play-Store-Eintrag. Der Inhalt entsteht aus `datenschutz.html` und
+`impressum.html` über `node make-legal-pages.js`; `validate.js` erzeugt
+dieselben Dateien im Speicher und vergleicht. Wer einen Rechtstext
+ändert und das Skript vergisst, fällt durch die Prüfkette.
+Einstellung: Settings → Pages → Branch `main`, Ordner `/docs`.
 
 ## Offen
 

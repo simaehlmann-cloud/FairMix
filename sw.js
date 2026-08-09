@@ -4,7 +4,11 @@
    - Übrige Dateien: erst Cache, Aktualisierung im Hintergrund
    Der Worker übernimmt erst nach Bestätigung durch die App (SKIP_WAITING). */
 
-const CACHE = 'fairmix-v34';
+/* Der Name traegt die App-Version. validate.js vergleicht ihn mit
+   APP_VERSION in der index.html: Wer die Version anhebt, ohne diese Zeile
+   nachzuziehen, liefert Rueckkehrern sonst weiter die alte Fassung aus
+   dem Cache aus. build-lite.sh setzt hier 'fairmixlite-' ein. */
+const CACHE = 'fairmix-1.22.1';
 
 const ASSETS = [
   './',

@@ -1891,6 +1891,23 @@ check('Namen verlieren Steuerzeichen auf beiden Eingabewegen', () => {
          'Einzeleingabe laesst Steuerzeichen durch: ' + JSON.stringify(g('originalNames')[0]));
 });
 
+check('Namen werden auf beiden Eingabewegen gekuerzt', () => {
+  /* Ohne Obergrenze sprengt ein eingefuegter Absatz Liste, Gluecksrad und
+     Bild-Export – und im Puzzle faellt ein zu langes Thema beim naechsten
+     Start durch validJigsaw, der Name bliebe dagegen unbemerkt stehen. */
+  const max = g('NAME_MAX_LEN');
+  vm.runInContext("originalNames = []; presentNames = []; absentNames = [];", ctx);
+
+  $('nameInput').value = 'L'.repeat(max + 60);
+  g('addName')();
+  assert(g('originalNames')[0].length === max,
+         'Einzeleingabe ungekuerzt: ' + g('originalNames')[0].length);
+
+  const ausBlob = g('parseNameBlob')('B'.repeat(max + 60) + '\nKurz');
+  assert(ausBlob[0].length === max, 'Masseneingabe ungekuerzt: ' + ausBlob[0].length);
+  assert(ausBlob[1] === 'Kurz', 'zweiter Name verloren: ' + ausBlob[1]);
+});
+
 
 /* ============ Ziehen unabhaengig von Gruppen ============ */
 
@@ -3288,6 +3305,16 @@ check('Beschädigte Puzzle-Daten werden verworfen, nicht übernommen', () => {
     Object.assign({}, gut, { expert: [] }),
     Object.assign({}, gut, { home: [[{ name: 'X', topic: 99 }]] }),
     Object.assign({}, gut, { home: [[{ topic: 0 }]] }),
+    /* Themenindex zeigt ins Leere, aber die Kopfzahlen stimmen. Der Fall
+       darueber scheitert schon an der Kopfzahlpruefung und liesse die
+       Obergrenze des Index unbelegt – genau die, ohne die die
+       Expertenansicht spaeter auf undefined zugreift. */
+    (() => { const k = JSON.parse(JSON.stringify(gut));
+             k.home[0][0].topic = k.topics.length; return k; })(),
+    (() => { const k = JSON.parse(JSON.stringify(gut));
+             k.expert[0][0].topic = k.topics.length; return k; })(),
+    (() => { const k = JSON.parse(JSON.stringify(gut));
+             k.home[0][0].topic = -1; return k; })(),
     /* Beide Ansichten strukturell gueltig, aber mit verschiedenen
        Kopfzahlen – der Umschalter zeigte sonst zwei verschiedene Klassen. */
     Object.assign({}, gut, { home: gut.home.slice(0, 1) })

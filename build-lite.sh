@@ -21,7 +21,8 @@ LITE_ID="de.fairmix.lite"
 
 echo "== FairMix Lite bauen =="
 
-for f in index.html config.xml manifest.json sw.js datenschutz.html impressum.html \
+for f in index.html config.xml manifest.json sw.js datenschutz.html impressum.html mutate.sh \
+         make-legal-pages.js \
          validate.js smoketest.js stresstest.js README.md make-lite-icons.py; do
   [ -f "$f" ] || { echo "FEHLT: $f"; exit 1; }
 done
@@ -62,7 +63,7 @@ sed -e 's|"FairMix Pro – Gruppenplaner"|"FairMix Lite – Gruppenplaner"|' \
 # ---- Service-Worker: eigener Cache ----
 # Gleicher Name hiesse: liegen beide Fassungen je auf derselben Adresse,
 # uebernaehme eine den Cache der anderen.
-sed "s/'fairmix-v/'fairmixlite-v/" sw.js > "$ZIEL/sw.js"
+sed "s/'fairmix-/'fairmixlite-/" sw.js > "$ZIEL/sw.js"
 
 # ---- Icons ----
 if [ "$ICONS" = "1" ]; then

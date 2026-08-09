@@ -1,0 +1,41 @@
+FairMix Pro 1.22.1a – Prüfkette + Rechtstexte im Web
+====================================================
+
+index.html ist UNVERÄNDERT.
+
+--- Neu ins Repo legen ---
+  make-legal-pages.js   erzeugt docs/ aus den Rechtstexten
+  docs/                 kompletter Ordner (enthält auch .nojekyll)
+
+--- Ersetzen ---
+  smoketest.js          249 statt 248 Abläufe
+  validate.js           2 neue Prüfungen (Cache-Name, Webfassung)
+  sw.js                 CACHE = 'fairmix-1.22.1'
+  build-lite.sh         sed-Muster + Existenzprüfung
+  AENDERUNGEN.md        neuer Eintrag
+  PROJEKTWISSEN.md      Cache-Name, Testzahl, Pages-Einrichtung
+
+WICHTIG: sw.js und build-lite.sh gehören zusammen. Das sed-Muster hieß
+'fairmix-v und greift auf den neuen Cache-Namen nicht mehr.
+
+ACHTUNG .nojekyll: Die Datei beginnt mit einem Punkt und ist LEER.
+Manche Entpacker und der Drag-and-drop-Upload im Browser blenden sie aus.
+Prüfe nach dem Push, dass docs/.nojekyll im Repo liegt.
+
+--- GitHub Pages einschalten ---
+  Settings -> Pages -> Source: Deploy from a branch
+  Branch: main    Ordner: /docs    Save
+
+URL für die Play Console (BENUTZERNAME und REPO ersetzen):
+  https://BENUTZERNAME.github.io/REPO/fairmix/datenschutz.html
+
+--- Prüfen ---
+  node make-legal-pages.js
+  node validate.js && node smoketest.js && node stresstest.js
+  ./build-lite.sh
+Erwartet: "Alle Prüfungen bestanden" / "249 Abläufe fehlerfrei"
+
+Nach JEDER Änderung an datenschutz.html oder impressum.html:
+  node make-legal-pages.js
+Sonst bricht validate.js mit "Webfassung veraltet" ab. Genau dafür ist
+die Prüfung da.
