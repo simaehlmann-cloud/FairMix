@@ -32,6 +32,22 @@ App gibt. `validate.js` führt dieselbe Umformung im Speicher aus und
 vergleicht – eine Datenschutzerklärung, die im Store anders lautet als
 in der App, wäre eine Falschangabe, keine Unsauberkeit.
 
+**Die Actions laufen jetzt auf Node 24.** GitHub hat die Runner am
+16.06.2026 umgestellt und entfernt Node 20 am 16.09.2026. Bis dahin liefen
+die alten Fassungen nur deshalb noch, weil der Runner sie zwangsweise auf
+Node 24 schob. Angehoben: checkout v5, setup-node v5, setup-java v5,
+upload-artifact v6, setup-android v4. Bei upload-artifact reicht v5 nicht –
+diese Fassung lief standardmäßig weiter auf Node 20.
+
+Der Sprung bei setup-android ist der einzige, der mehr als die Laufzeit
+ändert: v4 stellt zugleich die Standard-cmdline-tools auf 20.0 um. Der
+Schritt "Ziel-SDK bestätigen" fängt es ab, falls dabei nicht mehr API 36
+herauskommt.
+
+Die Prüfkette selbst läuft jetzt auf Node 22 statt 20 – Node 20 hatte am
+30.04.2026 End-of-Life. Validator, Smoketest, Stresstest und Lite-Build
+sind auf 22 nachgewiesen.
+
 Alle neun neuen Prüfungen sind durch Mutation belegt.
 
 # FairMix 1.22.1 – Glücksrad im Gruppenpuzzle

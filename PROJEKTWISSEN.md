@@ -54,6 +54,7 @@ aus `colors.xml` (`fairmix_icon_background`, #f4f8fc).
 - Prüfkette: `node make-legal-pages.js`, `node validate.js`, `node smoketest.js`,
   `node stresstest.js`,
   `./mutate.sh` nach einer eingebauten Mutation, `./build-lite.sh`
+- CI: Node 22, Actions auf Node-24-Laufzeit (Stand August 2026)
 
 ## Rechtstexte im Web
 

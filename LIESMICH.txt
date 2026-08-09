@@ -1,41 +1,40 @@
-FairMix Pro 1.22.1a – Prüfkette + Rechtstexte im Web
-====================================================
+FairMix Pro 1.22.1a – Sammel-Update
+===================================
+index.html ist UNVERAENDERT.
 
-index.html ist UNVERÄNDERT.
+NEU ins Repo legen
+  make-legal-pages.js
+  docs/            (ganzer Ordner, enthaelt auch die leere .nojekyll)
 
---- Neu ins Repo legen ---
-  make-legal-pages.js   erzeugt docs/ aus den Rechtstexten
-  docs/                 kompletter Ordner (enthält auch .nojekyll)
+ERSETZEN (gleicher Name, ueberschreiben)
+  android.yml      -> .github/workflows/android.yml
+  validate.js
+  smoketest.js
+  sw.js
+  build-lite.sh
+  AENDERUNGEN.md
+  PROJEKTWISSEN.md
 
---- Ersetzen ---
-  smoketest.js          249 statt 248 Abläufe
-  validate.js           2 neue Prüfungen (Cache-Name, Webfassung)
-  sw.js                 CACHE = 'fairmix-1.22.1'
-  build-lite.sh         sed-Muster + Existenzprüfung
-  AENDERUNGEN.md        neuer Eintrag
-  PROJEKTWISSEN.md      Cache-Name, Testzahl, Pages-Einrichtung
+ACHTUNG
+  1) android.yml liegt im Repo unter .github/workflows/ , nicht im Wurzel-
+     verzeichnis. Alle anderen Dateien kommen ins Wurzelverzeichnis.
+  2) docs/.nojekyll ist leer und faengt mit einem Punkt an. Viele Entpacker
+     blenden sie aus. Nach dem Push pruefen, dass sie im Repo liegt.
+  3) sw.js und build-lite.sh gehoeren zusammen. Einzeln ersetzt bekaeme der
+     Lite-Build denselben Cache-Namen wie Pro.
 
-WICHTIG: sw.js und build-lite.sh gehören zusammen. Das sed-Muster hieß
-'fairmix-v und greift auf den neuen Cache-Namen nicht mehr.
+DANACH GITHUB PAGES EINSCHALTEN
+  Settings -> Pages -> Deploy from a branch -> Branch main, Ordner /docs
 
-ACHTUNG .nojekyll: Die Datei beginnt mit einem Punkt und ist LEER.
-Manche Entpacker und der Drag-and-drop-Upload im Browser blenden sie aus.
-Prüfe nach dem Push, dass docs/.nojekyll im Repo liegt.
-
---- GitHub Pages einschalten ---
-  Settings -> Pages -> Source: Deploy from a branch
-  Branch: main    Ordner: /docs    Save
-
-URL für die Play Console (BENUTZERNAME und REPO ersetzen):
+URL fuer die Play Console (BENUTZERNAME und REPO ersetzen):
   https://BENUTZERNAME.github.io/REPO/fairmix/datenschutz.html
 
---- Prüfen ---
+LOKAL PRUEFEN (optional)
   node make-legal-pages.js
   node validate.js && node smoketest.js && node stresstest.js
   ./build-lite.sh
-Erwartet: "Alle Prüfungen bestanden" / "249 Abläufe fehlerfrei"
+Erwartet: "Alle Pruefungen bestanden" / "249 Ablaeufe fehlerfrei"
 
-Nach JEDER Änderung an datenschutz.html oder impressum.html:
+MERKSATZ
+  Nach jeder Aenderung an datenschutz.html oder impressum.html:
   node make-legal-pages.js
-Sonst bricht validate.js mit "Webfassung veraltet" ab. Genau dafür ist
-die Prüfung da.
