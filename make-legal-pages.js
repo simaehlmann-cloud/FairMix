@@ -33,7 +33,7 @@ const STORE_URL = 'https://play.google.com/store/apps/details?id=de.fairmix.app'
 function fuerWeb(html) {
   return html
     .replace(/href="index\.html">Zurück zur App</g,
-             'href="./">Zur Übersicht<')
+             'href="../">Zur Übersicht<')
     .replace(/<title>([^<]*)<\/title>/,
              '<title>$1</title>\n<meta name="robots" content="index, follow">');
 }
