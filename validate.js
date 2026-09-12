@@ -1,6 +1,7 @@
 /* FairMix – Prüfskript. Läuft mit: node validate.js */
 const fs = require('fs');
 const vm = require('vm');
+const path = require('path');
 
 const html = fs.readFileSync('index.html', 'utf8');
 let errors = [], warns = [], ok = [];
@@ -178,6 +179,75 @@ for (const [re, msg] of [
    'config.xml sperrt das Hochformat – der Präsentationsmodus braucht Querformat']
 ]) if (!re.test(cfg)) E(msg);
 if (!errors.some(e => e.startsWith('config.xml'))) O('config.xml vollständig');
+
+/* ---------- 12b. iOS-Plattform ----------
+   Jeder Punkt hier ist ein Rueckweisungsgrund bei App Store Connect, und
+   jeder faellt erst nach der Verarbeitung auf – die Build-Nummer ist dann
+   verbraucht und muss angehoben werden. Deshalb pruefen wir vor dem Build. */
+/* Der Lite-Build ist bewusst Android-only: eine kostenlose Zweit-App im
+   App Store waere nach Apples Richtlinie 4.3 (doppelte Apps) angreifbar.
+   build-lite.sh kopiert die iOS-Dateien deshalb gar nicht mit – die
+   Pruefungen hier wuerden ins Leere laufen und den Lite-Build rot faerben.
+   Dieselbe Ausnahme gilt schon fuer die Webfassung der Rechtstexte.
+
+   Die Umgebungsvariable wird hier direkt gelesen statt ueber die Konstante
+   istLite weiter unten: dieser Block steht frueher in der Datei, und ein
+   const ist vorher nicht zugreifbar. */
+if (process.env.FAIRMIX_LITE === '1') {
+  O('iOS-Plattform – im Lite-Build nicht geprüft');
+} else {
+const iosBlock = (cfg.match(/<platform name="ios">[\s\S]*?<\/platform>/) || [''])[0];
+if (!iosBlock) {
+  E('config.xml ohne <platform name="ios"> – der iOS-Build hat keine Grundlage');
+} else {
+  for (const [re, msg] of [
+    [/ios-CFBundleVersion="\d+"/, 'config.xml ohne ios-CFBundleVersion (Uploads mit gleicher Nummer weist Apple ab)'],
+    [/deployment-target"\s+value="1[4-9]/, 'config.xml ohne deployment-target 14.0+'],
+    [/ITSAppUsesNonExemptEncryption/, 'config.xml ohne Export-Erklärung – jeder Upload fragt sonst nach'],
+    [/NSPhotoLibraryAddUsageDescription/, 'config.xml ohne Foto-Hinweis – "Bild sichern" beendet die App'],
+    [/PrivacyInfo\.xcprivacy/, 'config.xml bindet das Privacy-Manifest nicht ein'],
+    [/StatusBarStyle"\s+value="lightcontent"/, 'config.xml ohne helle Statusleiste – schwarze Uhrzeit auf dunklem Kopf'],
+    [/icon-1024\.png/, 'config.xml ohne 1024er-Store-Icon'],
+    [/<splash /, 'config.xml ohne Startbild – cordova-ios legt sonst kein Storyboard an']
+  ]) if (!re.test(iosBlock) && !re.test(cfg)) E(msg);
+
+  if (!/cordova-plugin-statusbar/.test(cfg)) {
+    E('config.xml ohne Statusleisten-Plugin – StatusBarStyle bleibt wirkungslos');
+  }
+
+  /* Die Datei muss auch da sein, nicht nur erwaehnt. */
+  if (!fs.existsSync(path.join('res', 'ios', 'PrivacyInfo.xcprivacy'))) {
+    E('res/ios/PrivacyInfo.xcprivacy fehlt – App Store Connect weist den Upload zurück');
+  } else {
+    const pm = fs.readFileSync(path.join('res', 'ios', 'PrivacyInfo.xcprivacy'), 'utf8');
+    if (!/NSPrivacyTracking/.test(pm))          E('PrivacyInfo.xcprivacy ohne NSPrivacyTracking');
+    if (!/NSPrivacyCollectedDataTypes/.test(pm)) E('PrivacyInfo.xcprivacy ohne NSPrivacyCollectedDataTypes');
+    /* FairMix erhebt nichts. Stuende hier etwas anderes, widerspraeche das
+       der Datenschutzerklaerung – und das faellt im Review auf. */
+    if (/<true\/>[\s\S]{0,80}NSPrivacyTracking|NSPrivacyTracking<\/key>\s*<true\/>/.test(pm)) {
+      E('PrivacyInfo.xcprivacy meldet Tracking, die Datenschutzerklärung schließt es aus');
+    }
+  }
+
+  /* Der iPad-Anker ist kein Schoenheitsfehler: ohne ihn bricht UIKit die
+     App beim Teilen ab. Die Pruefung haengt an deliverFile(). */
+  if (!/iPadPopupCoordinates/.test(html)) {
+    E('deliverFile() übergibt keine iPadPopupCoordinates – Teilen stürzt auf dem iPad ab');
+  }
+
+  /* iOS sperrt einen AudioContext, der ausserhalb einer Nutzergeste
+     entsteht. Ohne unlockAudio() im Startpfad bliebe der Weckton stumm. */
+  if (!/function unlockAudio\s*\(/.test(html)) {
+    E('unlockAudio() fehlt – der Weckton der Uhr bleibt auf iOS stumm');
+  } else if (!/function startTimer\s*\(\)\s*\{[\s\S]{0,200}?unlockAudio\(\)/.test(html)) {
+    E('startTimer() schaltet den Ton nicht frei – iOS lässt den AudioContext gesperrt');
+  }
+
+  if (!errors.some(e => /^(config\.xml ohne (ios|deployment|ITS|NS|Privacy|Status|Startbild)|res\/ios|PrivacyInfo|deliverFile|unlockAudio|startTimer)/.test(e))) {
+    O('iOS-Plattform vollständig');
+  }
+}
+}
 
 /* ---------- 12a. hidden wirkt auch gegen display-Klassen ---------- */
 /* Der Browser blendet [hidden] nur über sein eigenes Stylesheet aus. Jede

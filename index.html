@@ -413,13 +413,22 @@ body.dark-mode .role-chip[aria-expanded="true"] { background: #4a3f14; border-co
 .modal-overlay {
   display: none; position: fixed; inset: 0;
   background: var(--modal-bg); z-index: 2000;
-  justify-content: center; align-items: center; padding: var(--sp-4);
+  justify-content: center; align-items: center;
+  padding: calc(var(--sp-4) + env(safe-area-inset-top)) var(--sp-4)
+           calc(var(--sp-4) + env(safe-area-inset-bottom));
 }
 .modal-overlay.open { display: flex; }
 .modal-content {
   background: var(--card-bg); padding: var(--sp-5); border-radius: 16px;
   width: 100%; max-width: 420px; max-height: 85vh; overflow-y: auto;
   text-align: left; border: 3px solid var(--border-color);
+  /* Verhindert, dass Wischen im Dialog die Seite dahinter mitzieht. */
+  overscroll-behavior: contain;
+}
+/* dvh beruecksichtigt die ein- und ausfahrende Adressleiste in Safari.
+   Getrennt notiert, damit aeltere Browser die 85vh-Zeile darueber behalten. */
+@supports (max-height: 85dvh) {
+  .modal-content { max-height: 85dvh; }
 }
 .modal-content h3, .modal-content h4 { margin-top: 0; color: var(--text-color); }
 .modal-actions { display: flex; gap: var(--sp-2); justify-content: flex-end; margin-top: var(--sp-5); }
@@ -453,7 +462,10 @@ body.dark-mode .role-chip[aria-expanded="true"] { background: #4a3f14; border-co
 .present-overlay {
   display: none; position: fixed; inset: 0;
   background: var(--bg-color); z-index: 3000; overflow-y: auto;
-  padding: 0 var(--sp-4) var(--sp-5);
+  /* Die Vollbildflaeche liegt unter dem Home-Indikator des iPhone.
+     Ohne den Zuschlag verschwindet die letzte Karte darunter. */
+  padding: 0 var(--sp-4) calc(var(--sp-5) + env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
 }
 .present-overlay.open { display: block; }
 /* Klebt oben mit eigenem Hintergrund. Fixiert positioniert liess sie
@@ -2715,6 +2727,7 @@ function tickTimer() {
 
 function startTimer() {
   if (timerRunning) return;
+  unlockAudio();                 /* siehe playTimerSound(): iOS-Autoplay-Sperre */
   if (timerLeft <= 0) timerLeft = timerMinutes * 60;
   timerRunning  = true;
   timerDeadline = Date.now() + timerLeft * 1000;
@@ -2749,14 +2762,39 @@ function timerFinished() {
   notify(t('msgTimerDone'));
 }
 
-/* Kurzer Ton ohne Audiodatei – die App bleibt damit vollständig offline. */
+/* Kurzer Ton ohne Audiodatei – die App bleibt damit vollständig offline.
+
+   iOS/WKWebView: Ein AudioContext startet ausserhalb einer Nutzergeste im
+   Zustand "suspended" und bleibt es. Frueher entstand der Kontext erst in
+   timerFinished(), also in einem setInterval-Rueckruf – auf dem iPhone war
+   der Weckton damit tonlos. Deshalb: ein einziger Kontext, angelegt und
+   freigeschaltet beim Tippen auf Start. */
+let audioCtx = null;
+
+function audioContextClass() {
+  return (typeof AudioContext === "function") ? AudioContext
+       : (typeof webkitAudioContext === "function") ? webkitAudioContext : null;
+}
+
+/* Aus einer Nutzergeste heraus aufrufen. Mehrfachaufrufe sind unschaedlich. */
+function unlockAudio() {
+  if (!timerSound) return;
+  try {
+    const AC = audioContextClass();
+    if (!AC) return;
+    if (!audioCtx || audioCtx.state === "closed") audioCtx = new AC();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch (e) { audioCtx = null; }
+}
+
 function playTimerSound() {
   if (!timerSound) return;
   try {
-    const AC = (typeof AudioContext === "function") ? AudioContext
-             : (typeof webkitAudioContext === "function") ? webkitAudioContext : null;
+    const AC = audioContextClass();
     if (!AC) return;
-    const ac = new AC();
+    if (!audioCtx || audioCtx.state === "closed") audioCtx = new AC();
+    const ac = audioCtx;
+    if (ac.state === "suspended") ac.resume();
     [0, 0.28, 0.56].forEach(offset => {
       const osc = ac.createOscillator();
       const gain = ac.createGain();
@@ -2769,7 +2807,8 @@ function playTimerSound() {
       osc.start(ac.currentTime + offset);
       osc.stop(ac.currentTime + offset + 0.22);
     });
-    setTimeout(() => { try { ac.close(); } catch (e) {} }, 1200);
+    /* Der Kontext bleibt bestehen: erneutes Anlegen waere auf iOS wieder
+       gesperrt, und ein ruhender Oszillator-Kontext kostet nichts. */
   } catch (e) { /* ohne Ton ist der Timer weiterhin brauchbar */ }
 }
 
@@ -2782,6 +2821,10 @@ function toggleDemoHint(anzeigen) {
 
 function toggleTimerSound() {
   timerSound = !timerSound;
+  /* Wird der Ton bei bereits laufender Uhr eingeschaltet, ist das hier die
+     letzte Nutzergeste vor dem Weckton – also die letzte Gelegenheit, den
+     AudioContext auf iOS freizuschalten. */
+  if (timerSound) unlockAudio();
   saveState();
   renderTimer();
 }
@@ -3000,13 +3043,31 @@ function blobToDataUrl(blob) {
    content:-Adresse weiter. Ein file:-Pfad wäre für die Empfänger-App nicht lesbar
    (seit Android 7 lösen solche Adressen eine FileUriExposedException aus).
    Den Dateinamen erwartet das Plugin dabei im Feld "subject". */
+/* Liefert "links,oben,breite,hoehe" fuer das iPad-Popover. Die Werte muessen
+   im sichtbaren Bereich liegen; ausserhalb positioniert UIKit das Popover
+   selbst und protokolliert eine Warnung. */
+function iPadShareAnchor() {
+  const b = Math.max(0, Math.round(window.innerHeight - 80));
+  const m = Math.max(0, Math.round(window.innerWidth / 2));
+  return m + "," + b + ",0,0";
+}
+
 function deliverFile(filename, blob) {
   const sharer = window.plugins && window.plugins.socialsharing;
 
   if (window.cordova && sharer && sharer.shareWithOptions) {
     blobToDataUrl(blob).then(dataUrl => {
       sharer.shareWithOptions(
-        { subject: filename, files: [dataUrl], chooserTitle: filename },
+        {
+          subject: filename,
+          files: [dataUrl],
+          chooserTitle: filename,
+          /* Auf dem iPad ist das Teilen-Menue ein Popover und braucht einen
+             Ankerpunkt. Ohne Angabe wirft UIKit zur Laufzeit eine Ausnahme
+             und die App bricht ab. Wir verankern mittig unten – dort steht
+             in FairMix die ausloesende Schaltflaeche. */
+          iPadPopupCoordinates: iPadShareAnchor()
+        },
         () => {},
         err => { console.error("Teilen fehlgeschlagen:", err); notify(t('msgShareFailed'), true); }
       );

@@ -2,6 +2,7 @@
 <widget id="de.fairmix.app"
         version="1.22.1"
         android-versionCode="12201"
+        ios-CFBundleVersion="12201"
         xmlns="http://www.w3.org/ns/widgets"
         xmlns:cdv="http://cordova.apache.org/ns/1.0">
 
@@ -13,7 +14,14 @@
 
     <!-- Die App arbeitet offline. Es wird bewusst kein <access origin="*"> gesetzt,
          damit die App keine fremden Inhalte laden kann. Externe Links aus der
-         Datenschutzerklärung öffnen im System-Browser statt in der App. -->
+         Datenschutzerklärung öffnen im System-Browser statt in der App.
+
+         Auf iOS ist das mehr als Kosmetik: ohne <allow-navigation> gilt der
+         Standard "nur eigene Herkunft". Der Google-Link in der
+         Datenschutzerklärung wird dadurch nicht im WebView geöffnet, sondern
+         über allow-intent an Safari übergeben. Andernfalls läge die
+         App-Oberfläche unerreichbar hinter einer fremden Seite – auf dem
+         iPhone gibt es keine Zurück-Taste, die den Nutzer zurückholt. -->
     <allow-intent href="mailto:*" />
     <allow-intent href="https://*/*" />
 
@@ -45,8 +53,88 @@
         <icon density="xxxhdpi" background="@color/fairmix_icon_background" foreground="res/android/icon_fg_xxxhdpi.png" src="res/android/icon_xxxhdpi.png" />
     </platform>
 
+    <platform name="ios">
+        <!-- 14.0 deckt jedes Gerät ab, das Apple noch mit Sicherheitsupdates
+             versorgt, und lässt alle Web-Funktionen zu, die FairMix nutzt
+             (CSS env(), :is(), Web Audio). Höher zu gehen kostet nur Nutzer. -->
+        <preference name="deployment-target" value="14.0" />
+
+        <!-- Wischen von der linken Kante geht zurück. Für den Fall gedacht,
+             dass eine Navigation die App-Oberfläche verlässt (Rechtstexte).
+             Ersetzt auf iOS die fehlende Hardware-Zurück-Taste. -->
+        <preference name="AllowBackForwardNavigationGestures" value="true" />
+
+        <!-- Die Statusleiste liegt über dem dunklen Kopfbereich (#003366 hell,
+             #2c2033 dunkel). Ohne "lightcontent" zeichnet iOS dort schwarze
+             Uhrzeit und schwarze Symbole – auf beiden Farben unlesbar.
+             Der Body trägt bereits padding-top: env(safe-area-inset-top),
+             der Inhalt rutscht also nicht unter die Leiste. -->
+        <preference name="StatusBarOverlaysWebView" value="true" />
+        <preference name="StatusBarStyle" value="lightcontent" />
+
+        <!-- Web-Audio (Weckton der Uhr) darf ohne erneute Geste starten;
+             die Freischaltung passiert in unlockAudio() beim Start der Uhr. -->
+        <preference name="AllowInlineMediaPlayback" value="true" />
+        <preference name="MediaTypesRequiringUserActionForPlayback" value="none" />
+
+        <!-- Kein Export-Compliance-Dialog bei jedem Upload. FairMix nutzt
+             keine eigene Verschlüsselung; ohne diesen Eintrag fragt
+             App Store Connect bei jedem Build erneut nach. -->
+        <edit-config target="ITSAppUsesNonExemptEncryption" file="*-Info.plist" mode="overwrite">
+            <false/>
+        </edit-config>
+
+        <!-- Aus dem Teilen-Menü heraus kann "Bild sichern" gewählt werden.
+             Fehlt dieser Text, beendet iOS die App beim Zugriff auf die
+             Fotomediathek ohne Rückfrage. -->
+        <edit-config target="NSPhotoLibraryAddUsageDescription" file="*-Info.plist" mode="overwrite">
+            <string>FairMix speichert auf deinen Wunsch ein Bild der Gruppeneinteilung in deiner Fotomediathek. Es werden keine vorhandenen Fotos gelesen.</string>
+        </edit-config>
+
+        <!-- Privacy-Manifest. cordova-ios 8 bringt selbst eines mit, dort
+             ist NSPrivacyAccessedAPITypes aber leer. Unseres nennt den Grund
+             CA92.1 für UserDefaults, in denen Cordova eigene Einstellungen
+             ablegt. Ziel ist bewusst der Platz des mitgelieferten Manifests –
+             zwei Manifeste im Projekt wären mehrdeutig, und Xcode bindet nur
+             das aus der Projektdatei ein. Der Workflow prüft das Ergebnis
+             und ersetzt notfalls nach. -->
+        <resource-file src="res/ios/PrivacyInfo.xcprivacy"
+                       target="App/PrivacyInfo.xcprivacy" />
+
+        <!-- App-Icons. Ohne Alphakanal – Icons mit Transparenz lehnt
+             App Store Connect ab. make-ios-icons.py legt den Kanal
+             deshalb auf #f4f8fc, dieselbe Fläche wie beim adaptiven
+             Android-Icon. -->
+        <icon src="res/ios/icon-20.png"   width="20"   height="20" />
+        <icon src="res/ios/icon-29.png"   width="29"   height="29" />
+        <icon src="res/ios/icon-40.png"   width="40"   height="40" />
+        <icon src="res/ios/icon-58.png"   width="58"   height="58" />
+        <icon src="res/ios/icon-60.png"   width="60"   height="60" />
+        <icon src="res/ios/icon-76.png"   width="76"   height="76" />
+        <icon src="res/ios/icon-80.png"   width="80"   height="80" />
+        <icon src="res/ios/icon-87.png"   width="87"   height="87" />
+        <icon src="res/ios/icon-120.png"  width="120"  height="120" />
+        <icon src="res/ios/icon-152.png"  width="152"  height="152" />
+        <icon src="res/ios/icon-167.png"  width="167"  height="167" />
+        <icon src="res/ios/icon-180.png"  width="180"  height="180" />
+        <icon src="res/ios/icon-1024.png" width="1024" height="1024" />
+
+        <!-- Startbildschirm. cordova-ios legt daraus ein Launch-Storyboard an;
+             ein Splashscreen-Plugin ist dafür nicht nötig und wäre für
+             cordova-ios 6+ auch der falsche Weg. Ein quadratisches Bild in
+             "anyany" deckt alle Geräte und beide Lagen ab. -->
+        <splash src="res/ios/Default@2x~universal~anyany.png" />
+    </platform>
+
     <!-- Bild- und Backup-Export laufen über das Teilen-Menü.
          Die Datei wird als data:-URI übergeben; das Plugin legt sie über einen
-         eigenen FileProvider ab. Ein Dateisystem-Plugin ist dafür nicht nötig. -->
+         eigenen FileProvider (Android) bzw. eine temporäre Datei (iOS) ab.
+         Ein Dateisystem-Plugin ist dafür nicht nötig.
+         Auf dem iPad ist das Menü ein Popover – deliverFile() übergibt dafür
+         iPadPopupCoordinates, sonst bricht UIKit die App ab. -->
     <plugin name="cordova-plugin-x-socialsharing" spec="^6.0.4" />
+
+    <!-- Nur iOS: setzt StatusBarStyle um. Auf Android bleibt die Leiste
+         unverändert, das Plugin ist dort ohne Wirkung. -->
+    <plugin name="cordova-plugin-statusbar" spec="^4.0.0" />
 </widget>
