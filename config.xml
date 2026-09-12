@@ -91,15 +91,17 @@
             <string>FairMix speichert auf deinen Wunsch ein Bild der Gruppeneinteilung in deiner Fotomediathek. Es werden keine vorhandenen Fotos gelesen.</string>
         </edit-config>
 
-        <!-- Privacy-Manifest. cordova-ios 8 bringt selbst eines mit, dort
-             ist NSPrivacyAccessedAPITypes aber leer. Unseres nennt den Grund
-             CA92.1 für UserDefaults, in denen Cordova eigene Einstellungen
-             ablegt. Ziel ist bewusst der Platz des mitgelieferten Manifests –
-             zwei Manifeste im Projekt wären mehrdeutig, und Xcode bindet nur
-             das aus der Projektdatei ein. Der Workflow prüft das Ergebnis
-             und ersetzt notfalls nach. -->
-        <resource-file src="res/ios/PrivacyInfo.xcprivacy"
-                       target="App/PrivacyInfo.xcprivacy" />
+        <!-- Kein <resource-file> für das Privacy-Manifest, und das ist
+             Absicht: cordova-ios 8 legt selbst eines an, und ein zusätzlicher
+             Eintrag hier erzeugt eine zweite Kopie unter Resources/. Xcode
+             bricht dann mit "duplicate output file" ab – der Pfad in target
+             wird relativ zum Ressourcenordner aufgelöst, nicht zum Projekt.
+
+             Stattdessen überschreibt der Workflow das mitgelieferte Manifest
+             an Ort und Stelle (Schritt "Erzeugtes Projekt bestätigen"), denn
+             Apache liefert es mit leerem NSPrivacyAccessedAPITypes aus.
+             res/ios/PrivacyInfo.xcprivacy nennt den Grund CA92.1 für
+             UserDefaults, in denen Cordova eigene Einstellungen ablegt. -->
 
         <!-- App-Icons. Ohne Alphakanal – Icons mit Transparenz lehnt
              App Store Connect ab. make-ios-icons.py legt den Kanal

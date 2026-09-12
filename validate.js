@@ -205,7 +205,6 @@ if (!iosBlock) {
     [/deployment-target"\s+value="1[4-9]/, 'config.xml ohne deployment-target 14.0+'],
     [/ITSAppUsesNonExemptEncryption/, 'config.xml ohne Export-Erklärung – jeder Upload fragt sonst nach'],
     [/NSPhotoLibraryAddUsageDescription/, 'config.xml ohne Foto-Hinweis – "Bild sichern" beendet die App'],
-    [/PrivacyInfo\.xcprivacy/, 'config.xml bindet das Privacy-Manifest nicht ein'],
     [/StatusBarStyle"\s+value="lightcontent"/, 'config.xml ohne helle Statusleiste – schwarze Uhrzeit auf dunklem Kopf'],
     [/icon-1024\.png/, 'config.xml ohne 1024er-Store-Icon'],
     [/<splash /, 'config.xml ohne Startbild – cordova-ios legt sonst kein Storyboard an']
@@ -213,6 +212,23 @@ if (!iosBlock) {
 
   if (!/cordova-plugin-statusbar/.test(cfg)) {
     E('config.xml ohne Statusleisten-Plugin – StatusBarStyle bleibt wirkungslos');
+  }
+
+  /* Das Privacy-Manifest kommt bewusst NICHT ueber <resource-file> ins
+     Projekt: cordova-ios 8 legt selbst eines an, ein zweiter Eintrag fuehrt
+     zu "duplicate output file" und bricht den Xcode-Build ab. Stattdessen
+     ueberschreibt der Workflow das mitgelieferte Manifest. Geprueft wird
+     deshalb hier, dass dieser Weg auch wirklich existiert. */
+  const wf = path.join('.github', 'workflows', 'ios.yml');
+  if (fs.existsSync(wf)) {
+    const y = fs.readFileSync(wf, 'utf8');
+    if (!/PrivacyInfo\.xcprivacy/.test(y) || !/CA92\.1/.test(y)) {
+      E('ios.yml ersetzt das mitgelieferte Privacy-Manifest nicht – App Store Connect weist den Upload zurück');
+    }
+  }
+
+  if (/<resource-file[^>]*PrivacyInfo\.xcprivacy/.test(cfg)) {
+    E('config.xml bindet PrivacyInfo.xcprivacy als resource-file ein – das erzeugt eine zweite Kopie und bricht den Xcode-Build ab');
   }
 
   /* Die Datei muss auch da sein, nicht nur erwaehnt. */
@@ -243,7 +259,7 @@ if (!iosBlock) {
     E('startTimer() schaltet den Ton nicht frei – iOS lässt den AudioContext gesperrt');
   }
 
-  if (!errors.some(e => /^(config\.xml ohne (ios|deployment|ITS|NS|Privacy|Status|Startbild)|res\/ios|PrivacyInfo|deliverFile|unlockAudio|startTimer)/.test(e))) {
+  if (!errors.some(e => /^(config\.xml ohne (ios|deployment|ITS|NS|Privacy|Status|Startbild)|config\.xml bindet|ios\.yml|res\/ios|PrivacyInfo|deliverFile|unlockAudio|startTimer)/.test(e))) {
     O('iOS-Plattform vollständig');
   }
 }
