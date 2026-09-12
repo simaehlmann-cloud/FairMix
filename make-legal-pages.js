@@ -21,11 +21,19 @@ const ZIEL = 'docs';
 const STORE_URL = 'https://play.google.com/store/apps/details?id=de.fairmix.app';
 
 /* Einzige Umformung: der Rueckverweis auf die App. Alles andere – Text,
-   Gestaltung, Kopfzeile – bleibt Zeichen fuer Zeichen gleich. */
+   Gestaltung, Kopfzeile – bleibt Zeichen fuer Zeichen gleich.
+
+   Der Knopf fuehrt bewusst auf die Uebersichtsseite und nicht mehr in den
+   Play Store: Diese Seite ist auch die Datenschutz-Adresse im App Store,
+   und Apples Richtlinie 2.3.10 untersagt Verweise auf andere mobile
+   Plattformen in den Metadaten. Fuer Android-Nutzer aendert sich nichts
+   Wesentliches – sie kommen ueber den Store, aus dem sie geladen haben.
+   STORE_URL bleibt stehen, weil validate.js sie gegen PRO_STORE_URL in der
+   index.html prueft. */
 function fuerWeb(html) {
   return html
     .replace(/href="index\.html">Zurück zur App</g,
-             `href="${STORE_URL}">Im Play Store ansehen<`)
+             'href="./">Zur Übersicht<')
     .replace(/<title>([^<]*)<\/title>/,
              '<title>$1</title>\n<meta name="robots" content="index, follow">');
 }
