@@ -30,7 +30,14 @@ try:
 except ImportError:
     sys.exit("Pillow fehlt.  Abhilfe:  python3 -m pip install Pillow")
 
-QUELLE = "icon.png"
+# Bevorzugt icon-1024.png, faellt auf icon.png zurueck.
+#
+# icon.png ist 512px und muss es bleiben: manifest.json fuehrt es mit dieser
+# Groesse, und smoketest.js prueft die Uebereinstimmung. Fuer das
+# 1024er-Store-Icon reicht das nicht, deshalb liegt daneben eine eigene
+# Datei in doppelter Kantenlaenge.
+QUELLEN = ["icon-1024.png", "icon.png"]
+QUELLE = next((q for q in QUELLEN if os.path.exists(q)), QUELLEN[-1])
 ZIEL = os.path.join("res", "ios")
 
 # Dieselbe Flaeche wie hinter dem adaptiven Android-Icon
@@ -59,9 +66,10 @@ def ohne_alpha(bild, farbe):
 def main():
     if not os.path.exists(QUELLE):
         sys.exit(
-            "%s nicht gefunden. Das Skript gehoert ins Wurzelverzeichnis "
-            "des Repos, neben die index.html." % QUELLE
+            "Weder icon-1024.png noch icon.png gefunden. Das Skript gehoert "
+            "ins Wurzelverzeichnis des Repos, neben die index.html."
         )
+    print("Quelle: %s" % QUELLE)
 
     quelle = Image.open(QUELLE)
     if quelle.width != quelle.height:
@@ -71,8 +79,11 @@ def main():
         )
     if quelle.width < 1024:
         sys.exit(
-            "%s ist nur %dpx breit. Fuer das 1024er-Store-Icon waere das "
-            "eine Hochskalierung – Apple sieht das im Review."
+            "%s ist nur %dpx breit. Fuer das 1024er-Store-Icon waere das eine "
+            "Hochskalierung – Apple sieht das im Review.\n"
+            "Abhilfe: eine Datei icon-1024.png mit 1024x1024 danebenlegen. "
+            "icon.png bleibt unveraendert bei 512px, weil manifest.json und "
+            "smoketest.js darauf bestehen."
             % (QUELLE, quelle.width)
         )
 
