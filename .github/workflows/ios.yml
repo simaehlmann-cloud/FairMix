@@ -111,7 +111,7 @@ jobs:
           # Der Fund wird trotzdem gesucht statt geraten: faellt Apache das
           # noch einmal um, bricht der Build mit einer klaren Meldung ab
           # statt mit "Datei nicht gefunden".
-          PLIST=$(find platforms/ios -maxdepth 2 -name '*-Info.plist' | head -1)
+          PLIST=$(find platforms/ios -maxdepth 3 -name '*-Info.plist' | head -1)
           [ -n "$PLIST" ] || { echo "::error::Keine Info.plist im erzeugten Projekt gefunden."; exit 1; }
           echo "--- Info.plist: $PLIST ---"
 
@@ -119,7 +119,22 @@ jobs:
             /usr/libexec/PlistBuddy -c "Print :$1" "$PLIST" 2>/dev/null || echo "FEHLT"
           }
 
+          # cordova-ios 8 traegt in die Info.plist nur die Xcode-Variable
+          # $(PRODUCT_BUNDLE_IDENTIFIER) ein; der gesetzte Wert steht in der
+          # Projektdatei. Deshalb erst die Plist lesen und, wenn dort eine
+          # Variable oder nichts steht, in project.pbxproj nachsehen.
           BUNDLE=$(holen CFBundleIdentifier)
+          case "$BUNDLE" in
+            FEHLT|*'$('*)
+              PBX=$(find platforms/ios -name project.pbxproj | head -1)
+              if [ -n "$PBX" ]; then
+                BUNDLE=$(grep -m1 -o 'PRODUCT_BUNDLE_IDENTIFIER = [^;]*;' "$PBX" \
+                         | sed 's/.*= *//; s/;$//; s/^"//; s/"$//')
+                echo "Bundle-ID aus project.pbxproj gelesen."
+              fi
+              [ -n "$BUNDLE" ] || BUNDLE=FEHLT
+              ;;
+          esac
           KRYPTO=$(holen ITSAppUsesNonExemptEncryption)
           FOTOS=$(holen NSPhotoLibraryAddUsageDescription)
 
