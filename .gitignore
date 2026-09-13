@@ -1,0 +1,6 @@
+ios-signierung/
+res/ios/icon-*.png
+res/ios/Default*.png
+node_modules/
+platforms/
+store-bilder/
