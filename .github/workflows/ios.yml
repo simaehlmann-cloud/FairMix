@@ -61,7 +61,7 @@ jobs:
       # mit einem hinreichend neuen SDK gebaut wurden; welches das ist,
       # verschiebt sich jaehrlich. Diese Zeile ist der Ort, an dem das
       # nachgezogen wird.
-            - name: Xcode auswählen
+      - name: Xcode auswählen
         run: |
           set -e
           ls /Applications | grep -i '^Xcode' || true
