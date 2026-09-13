@@ -40,7 +40,7 @@ jobs:
     # Festgepinnt, nicht macos-latest: GitHub schiebt "latest" ohne Vorwarnung
     # auf eine neue Xcode-Fassung weiter. Ein Build, der gestern lief, faellt
     # dann heute durch, ohne dass sich am Repo etwas geaendert hat.
-    runs-on: macos-15
+    runs-on: macos-26
 
     env:
       APP_ID: de.fairmix.app
@@ -61,10 +61,13 @@ jobs:
       # mit einem hinreichend neuen SDK gebaut wurden; welches das ist,
       # verschiebt sich jaehrlich. Diese Zeile ist der Ort, an dem das
       # nachgezogen wird.
-      - name: Xcode auswählen
+            - name: Xcode auswählen
         run: |
           set -e
-          sudo xcode-select -switch /Applications/Xcode_16.4.app
+          ls /Applications | grep -i '^Xcode' || true
+          APP=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$APP" ] || { echo "Kein Xcode 26 auf diesem Laeufer gefunden."; exit 1; }
+          sudo xcode-select -switch "$APP"
           xcodebuild -version
 
       - name: Icons und Startbild erzeugen
