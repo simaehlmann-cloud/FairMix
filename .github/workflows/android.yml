@@ -89,8 +89,15 @@ jobs:
       # Damit aendert sich das Werkzeug, mit dem der naechste Schritt die
       # SDK-Pakete zieht. Der Schritt "Ziel-SDK bestaetigen" weiter unten
       # faengt es ab, falls dabei nicht mehr API 36 herauskommt.
+      # packages ausdruecklich setzen: Der Standard der Action ist
+      # "tools platform-tools". Google liefert das veraltete Paket "tools"
+      # seit dem 15.09.2026 nicht mehr aus, sdkmanager bricht dann ab
+      # (android-actions/setup-android#537). Cordova braucht "tools" nicht;
+      # Plattform und Build-Tools zieht der naechste Schritt selbst.
       - name: Android SDK bereitstellen
         uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
 
       - name: SDK-Pakete für API ${{ env.TARGET_SDK }} nachziehen
         run: |
