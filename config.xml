@@ -54,9 +54,11 @@
     </platform>
 
     <platform name="ios">
-        <!-- 14.0 deckt jedes Gerät ab, das Apple noch mit Sicherheitsupdates
-             versorgt, und lässt alle Web-Funktionen zu, die FairMix nutzt
-             (CSS env(), :is(), Web Audio). Höher zu gehen kostet nur Nutzer. -->
+        <!-- 15.0, weil Apple ab Frühjahr 2027 keine Uploads mit einem
+             niedrigeren Wert mehr annimmt (Warnung 90068 beim Upload von
+             12201). Lässt alle Web-Funktionen zu, die FairMix nutzt
+             (CSS env(), :is(), Web Audio). Ausgeschlossen sind damit nur
+             Geräte bis Baujahr 2016. -->
         <preference name="deployment-target" value="15.0" />
 
         <!-- Wischen von der linken Kante geht zurück. Für den Fall gedacht,
@@ -89,6 +91,16 @@
              Fotomediathek ohne Rückfrage. -->
         <edit-config target="NSPhotoLibraryAddUsageDescription" file="*-Info.plist" mode="overwrite">
             <string>FairMix speichert auf deinen Wunsch ein Bild der Gruppeneinteilung in deiner Fotomediathek. Es werden keine vorhandenen Fotos gelesen.</string>
+        </edit-config>
+
+        <!-- Das Plugin bringt zusätzlich den Schlüssel für den Lesezugriff mit,
+             und zwar mit Cordovas Platzhaltertext ("This app requires photo
+             library access to function properly."). Die automatische Prüfung
+             bei Apple weist Platzhalter ab und bricht die Review ab, bevor ein
+             Mensch die App sieht – so geschehen bei Build 12202. Deshalb hier
+             ein eigener Text, obwohl FairMix keine Fotos liest. -->
+        <edit-config target="NSPhotoLibraryUsageDescription" file="*-Info.plist" mode="overwrite">
+            <string>FairMix speichert auf deinen Wunsch ein Bild der Gruppeneinteilung in deiner Fotomediathek. Vorhandene Fotos werden weder gelesen noch verändert.</string>
         </edit-config>
 
         <!-- Kein <resource-file> für das Privacy-Manifest, und das ist
