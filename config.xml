@@ -2,7 +2,7 @@
 <widget id="de.fairmix.app"
         version="1.22.1"
         android-versionCode="12201"
-        ios-CFBundleVersion="12203"
+        ios-CFBundleVersion="12204"
         xmlns="http://www.w3.org/ns/widgets"
         xmlns:cdv="http://cordova.apache.org/ns/1.0">
 
@@ -97,7 +97,7 @@
              und zwar mit Cordovas Platzhaltertext ("This app requires photo
              library access to function properly."). Die automatische Prüfung
              bei Apple weist Platzhalter ab und bricht die Review ab, bevor ein
-             Mensch die App sieht – so geschehen bei Build 12202. Deshalb hier
+             Mensch die App sieht – so geschehen bei Build 12203. Deshalb hier
              ein eigener Text, obwohl FairMix keine Fotos liest. -->
         <edit-config target="NSPhotoLibraryUsageDescription" file="*-Info.plist" mode="overwrite">
             <string>FairMix speichert auf deinen Wunsch ein Bild der Gruppeneinteilung in deiner Fotomediathek. Vorhandene Fotos werden weder gelesen noch verändert.</string>
