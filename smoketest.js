@@ -171,6 +171,9 @@ const documentStub = {
   elementFromPoint: () => null
 };
 
+const TIMEOUT_TIEFE_MAX = 50;
+let timeoutTiefe = 0;
+
 const ctx = {
   console,
   document: documentStub,
@@ -181,7 +184,19 @@ const ctx = {
     setItem: (k, v) => { store[k] = String(v); },
     removeItem: k => { delete store[k]; }
   },
-  setTimeout: (fn, ms) => { if (ms <= 100) fn(); return 0; },
+  /* Kurze Verzoegerungen laufen sofort. Ein Rueckruf, der sich selbst
+     wieder mit kurzer Frist einplant, wuerde so zur Endlosschleife und
+     der Test haengen. Die Tiefe ist deshalb begrenzt; wird sie
+     ueberschritten, bricht der Ablauf mit einer klaren Meldung ab. */
+  setTimeout: (fn, ms) => {
+    if (ms > 100) return 0;
+    if (timeoutTiefe >= TIMEOUT_TIEFE_MAX)
+      throw new Error('setTimeout-Rekursion: mehr als ' + TIMEOUT_TIEFE_MAX +
+                      ' verschachtelte kurze Verzoegerungen (Polling-Schleife?)');
+    timeoutTiefe++;
+    try { fn(); } finally { timeoutTiefe--; }
+    return 0;
+  },
   clearTimeout: () => {}, setInterval: () => 0, clearInterval: () => {},
   Blob: class { constructor(p) { this.parts = p; } },
   URL: { createObjectURL: () => 'blob:x', revokeObjectURL() {} },
@@ -220,6 +235,8 @@ check('App startet mit reduziertem Funktionsumfang', () => {
   assert(g('features').rules  === false, 'Regeln sind zu Beginn eingeschaltet');
   assert(g('features').levels === false, 'Stufen sind zu Beginn eingeschaltet');
   assert(g('features').roles  === false, 'Rollen sind zu Beginn eingeschaltet');
+  assert(g('features').tasks  === false, 'Aufgaben beim Ziehen sind zu Beginn eingeschaltet');
+  assert($('featureTasks').hidden     === true, 'Aufgabenbereich sichtbar');
   assert(g("[...document.querySelectorAll('.feature-roles')].every(b => b.hidden)"),
          'Rollen-Schaltflaechen sichtbar');
   assert(g('features').data   === true,  'Import und Backup fehlt');
@@ -2308,6 +2325,188 @@ check('Alle abwesend meldet sich statt eine Runde zu beginnen', () => {
 });
 
 
+/* ============ Aufgaben beim Ziehen ============ */
+
+/* Der Schnelldurchlauf laeuft ueber setInterval, das die Testumgebung
+   sonst nie ausfuehrt. Hier wird der Takt von Hand weitergedreht. */
+const zieheMitTakt = () => {
+  let takt = null;
+  const altSet = ctx.setInterval, altClear = ctx.clearInterval;
+  ctx.setInterval = fn => { takt = fn; return 1; };
+  ctx.clearInterval = () => { takt = null; };
+  try {
+    g('pickRandomNameWithAnimation')();
+    for (let i = 0; takt && i < 100; i++) takt();
+  } finally {
+    ctx.setInterval = altSet; ctx.clearInterval = altClear;
+  }
+  assert(g('isAnimating') === false, 'Ziehung wurde nicht abgeschlossen');
+};
+const aufgabenLeeren = () => {
+  vm.runInContext("drawTasks = []; drawTask = '';", ctx);
+  $('drawTaskInput').value = '';
+};
+
+check('Aufgaben: Schalter blendet den Bereich ein und aus', () => {
+  g('showPage')('pageDraw');
+  g('features').tasks = true;  g('renderAll')();
+  assert($('featureTasks').hidden === false, 'Aufgabenbereich bleibt versteckt');
+  g('features').tasks = false; g('renderAll')();
+  assert($('featureTasks').hidden === true, 'Aufgabenbereich bleibt sichtbar');
+  g('features').tasks = true;  g('renderAll')();
+});
+
+check('Aufgaben: merken, doppelt, leer, gesaeubert', () => {
+  aufgabenLeeren();
+  $('drawTaskInput').value = '   ';
+  g('saveDrawTask')();
+  assert(g('drawTasks').length === 0, 'leere Aufgabe gemerkt');
+  assert($('msgText').textContent === g('t')('msgTaskEmpty'), 'keine Meldung bei leerer Aufgabe');
+
+  $('drawTaskInput').value = '  Tafel\u0007dienst   heute ';
+  g('saveDrawTask')();
+  assert(JSON.stringify(g('drawTasks')) === '["Tafeldienst heute"]', 'nicht gesaeubert: ' + JSON.stringify(g('drawTasks')));
+  assert(g('drawTask') === 'Tafeldienst heute', 'gemerkte Aufgabe nicht ausgewaehlt');
+
+  $('drawTaskInput').value = 'TAFELDIENST HEUTE';
+  g('saveDrawTask')();
+  assert(g('drawTasks').length === 1, 'Doppel trotz anderer Schreibweise gemerkt');
+  assert(g('drawTask') === 'Tafeldienst heute', 'Doppel waehlt nicht die gemerkte Fassung');
+
+  $('drawTaskInput').value = 'x'.repeat(90);
+  g('saveDrawTask')();
+  assert(g('drawTasks')[1].length === 40, 'Laengengrenze fehlt: ' + g('drawTasks')[1].length);
+  assert($('taskChipList').children.length === 2, 'Chips stimmen nicht mit der Liste ueberein');
+  assert($('taskEmptyHint').hidden === true, 'Leerhinweis trotz gemerkter Aufgaben');
+});
+
+check('Aufgaben: hoechstens TASK_MAX gemerkt', () => {
+  aufgabenLeeren();
+  const max = g('TASK_MAX');
+  for (let i = 0; i < max + 3; i++) { $('drawTaskInput').value = 'Aufgabe ' + i; g('saveDrawTask')(); }
+  assert(g('drawTasks').length === max, 'Grenze nicht gehalten: ' + g('drawTasks').length);
+  assert($('msgText').textContent === g('t')('msgTaskLimit'), 'keine Meldung an der Grenze');
+  assert(g('t')('msgTaskLimit').indexOf(String(max)) !== -1, 'Meldung nennt die Grenze nicht');
+});
+
+check('Aufgaben: Chip waehlt, zweites Tippen hebt auf, Kreuz entfernt', () => {
+  aufgabenLeeren();
+  ['Tafeldienst', 'Vorlesen'].forEach(n => { $('drawTaskInput').value = n; g('saveDrawTask')(); });
+  g('clearDrawTask')();
+  assert(g('drawTask') === '' && $('drawTaskInput').value === '', 'Ohne Aufgabe leert nicht');
+
+  const chip = i => $('taskChipList').children[i].children[0];
+  chip(0).click();
+  assert(g('drawTask') === 'Tafeldienst', 'Chip waehlt nicht');
+  assert($('drawTaskInput').value === 'Tafeldienst', 'Feld zeigt die Auswahl nicht');
+  assert(chip(0).classList.contains('selected'), 'Auswahl nicht markiert');
+  assert(chip(0).getAttribute('aria-pressed') === 'true', 'Auswahl nicht angesagt');
+  chip(0).click();
+  assert(g('drawTask') === '', 'zweites Tippen hebt nicht auf');
+
+  chip(1).click();
+  $('taskChipList').children[1].children[1].click();
+  assert(JSON.stringify(g('drawTasks')) === '["Tafeldienst"]', 'Kreuz entfernt falsch: ' + JSON.stringify(g('drawTasks')));
+  assert(g('drawTask') === '' && $('drawTaskInput').value === '', 'entfernte Aufgabe bleibt ausgewaehlt');
+});
+
+check('Aufgaben: Ziehung zeigt die Aufgabe, der Zaehler bleibt gemeinsam', () => {
+  ladeKlasse27();
+  aufgabenLeeren();
+  g('showPage')('pageDraw');
+  vm.runInContext("drawStyle = 'ticker';", ctx);
+
+  $('drawTaskInput').value = 'Tafeldienst'; g('onDrawTaskChange')();
+  zieheMitTakt();
+  assert($('drawTaskDisplay').textContent === 'Tafeldienst', 'Aufgabe fehlt: "' + $('drawTaskDisplay').textContent + '"');
+  assert($('drawTaskDisplay').classList.contains('visible'), 'Aufgabe nicht sichtbar');
+  const erster = $('bigDisplayDraw').textContent;
+  assert(g('drawCounts')[erster] === 1, 'Zaehler nicht erhoeht');
+
+  /* Freitext ohne Merken genuegt. Und: dieselbe Runde, kein Zaehler je Aufgabe. */
+  $('drawTaskInput').value = 'Fenster auf';
+  g('onDrawTaskInput')();
+  zieheMitTakt();
+  assert($('drawTaskDisplay').textContent === 'Fenster auf', 'Freitext erscheint nicht');
+  assert($('bigDisplayDraw').textContent !== erster, 'bereits Gezogener kam in derselben Runde erneut');
+  const summe = Object.values(g('drawCounts')).reduce((a, b) => a + b, 0);
+  assert(summe === 2, 'Zaehler ist nicht gemeinsam: ' + summe);
+  assert(!('Fenster auf' in g('drawCounts')) && !('Tafeldienst' in g('drawCounts')), 'Aufgabe landet im Zaehler');
+
+  g('clearDrawTask')();
+  zieheMitTakt();
+  assert($('drawTaskDisplay').classList.contains('visible') === false, 'leere Aufgabe wird angezeigt');
+});
+
+check('Aufgaben: Zuruecksetzen, Seitenwechsel und Abschalten raeumen die Anzeige', () => {
+  $('drawTaskInput').value = 'Tafeldienst'; g('onDrawTaskChange')();
+  zieheMitTakt();
+  assert($('drawTaskDisplay').classList.contains('visible'), 'Vorbedingung: Aufgabe sichtbar');
+  g('resetDraw')();
+  assert(!$('drawTaskDisplay').classList.contains('visible'), 'Neue Runde laesst die Aufgabe stehen');
+
+  zieheMitTakt();
+  g('showPage')('pageStart'); g('showPage')('pageDraw');
+  assert(!$('drawTaskDisplay').classList.contains('visible'), 'Seitenwechsel laesst die Aufgabe stehen');
+
+  zieheMitTakt();
+  g('features').tasks = false; g('renderAll')();
+  assert(!$('drawTaskDisplay').classList.contains('visible'), 'Abschalten laesst die Aufgabe stehen');
+  zieheMitTakt();
+  assert(!$('drawTaskDisplay').classList.contains('visible'), 'Aufgabe trotz Abschaltung gezogen');
+  assert(g('drawTask') === 'Tafeldienst', 'Abschalten hat die Aufgabe geloescht');
+  g('features').tasks = true; g('renderAll')();
+});
+
+check('Aufgaben: Ziehen auf einer anderen Seite zeigt keine Aufgabe', () => {
+  g('showPage')('pageNames');
+  vm.runInContext("drawCounts = {};", ctx);
+  zieheMitTakt();
+  assert(!$('drawTaskDisplay').classList.contains('visible'), 'Aufgabe ausserhalb der Ziehungsseite');
+  g('showPage')('pageDraw');
+});
+
+check('Aufgaben: ueberstehen Speichern und Laden, fremde Werte werden gesaeubert', () => {
+  aufgabenLeeren();
+  ['Tafeldienst', 'Vorlesen'].forEach(n => { $('drawTaskInput').value = n; g('saveDrawTask')(); });
+  g('saveState')();
+  vm.runInContext("drawTasks = []; drawTask = '';", ctx);
+  g('loadState')(); g('renderAll')();
+  assert(JSON.stringify(g('drawTasks')) === '["Tafeldienst","Vorlesen"]', 'Liste ging verloren');
+  assert(g('drawTask') === 'Vorlesen', 'Auswahl ging verloren');
+  assert($('drawTaskInput').value === 'Vorlesen', 'Feld zeigt nach dem Laden nichts');
+
+  const st = JSON.parse(store.fairmix_full_state);
+  const viele = []; for (let i = 0; i < 50; i++) viele.push('A' + i);
+  st.drawTasks = [42, null, { x: 1 }, '', 'Tafel\u0000dienst', 'tafeldienst', 'y'.repeat(500)].concat(viele);
+  st.drawTask = 'z'.repeat(300);
+  store.fairmix_full_state = JSON.stringify(st);
+  g('loadState')();
+  const l = g('drawTasks');
+  assert(l[0] === 'Tafeldienst', 'Steuerzeichen nicht entfernt: ' + l[0]);
+  assert(l.filter(x => x.toLowerCase() === 'tafeldienst').length === 1, 'Doppel aus fremder Sicherung');
+  assert(l.every(x => typeof x === 'string' && x.length > 0 && x.length <= 40), 'ungueltige Eintraege uebernommen');
+  assert(l.length === g('TASK_MAX'), 'Grenze beim Laden nicht gehalten: ' + l.length);
+  assert(g('drawTask').length === 40, 'aktuelle Aufgabe nicht gekuerzt');
+
+  st.drawTasks = 'kein Feld'; st.drawTask = 7;
+  store.fairmix_full_state = JSON.stringify(st);
+  g('loadState')();
+  assert(Array.isArray(g('drawTasks')) && g('drawTasks').length === 0, 'kaputte Liste nicht verworfen');
+  assert(g('drawTask') === '', 'kaputte Auswahl nicht verworfen');
+  aufgabenLeeren(); g('saveState')(); g('renderAll')();
+});
+
+check('Aufgaben: Chips setzen Namen nur als Text', () => {
+  aufgabenLeeren();
+  $('drawTaskInput').value = '<img src=x onerror=alert(1)>'; g('saveDrawTask')();
+  const chip = $('taskChipList').children[0].children[0];
+  assert(chip.textContent === '<img src=x onerror=alert(1)>', 'Text veraendert');
+  assert(chip.children.length === 0, 'Aufgabe als Markup eingesetzt');
+  aufgabenLeeren(); g('saveState')(); g('renderAll')();
+});
+
+
 /* ============ Praesentationsmodus bleibt schlank ============ */
 
 check('Kein Rest des Ablaufmodus im Code', () => {
@@ -3512,6 +3711,27 @@ checkLite('Der Name der Fassung steht im Titel', () => {
   g('setLanguage')('en');
   assert(g('t')('appTitle') === 'FairMix Lite', 'Titel auf Englisch: ' + g('t')('appTitle'));
   g('setLanguage')('de');
+});
+
+checkLite('Aufgaben beim Ziehen bleiben verschlossen, gespeicherte bleiben erhalten', () => {
+  vm.runInContext("Object.keys(features).forEach(k => features[k] = true); drawTasks = ['Tafeldienst']; drawTask = 'Tafeldienst';", ctx);
+  g('showPage')('pageDraw');
+  assert(g('featureOn')('tasks') === false, 'Aufgaben in Lite aktiv');
+  assert($('featureTasks').hidden === true, 'Aufgabenbereich in Lite sichtbar');
+  assert(g('currentDrawTask')() === '', 'Lite liefert eine Aufgabe fuer die Ziehung');
+  ['Anna', 'Ben', 'Cem'].forEach(n => { if (!g('originalNames').includes(n)) { $('nameInput').value = n; g('addName')(); } });
+  vm.runInContext("drawStyle = 'ticker'; isAnimating = false;", ctx);
+  let takt = null;
+  const altSet = ctx.setInterval, altClear = ctx.clearInterval;
+  ctx.setInterval = fn => { takt = fn; return 1; };
+  ctx.clearInterval = () => { takt = null; };
+  try { g('pickRandomNameWithAnimation')(); for (let i = 0; takt && i < 100; i++) takt(); }
+  finally { ctx.setInterval = altSet; ctx.clearInterval = altClear; }
+  assert(!$('drawTaskDisplay').classList.contains('visible'), 'Aufgabe in Lite angezeigt');
+  g('saveState')();
+  vm.runInContext("drawTasks = []; drawTask = '';", ctx);
+  g('loadState')();
+  assert(JSON.stringify(g('drawTasks')) === '["Tafeldienst"]', 'Lite hat gemerkte Aufgaben verworfen');
 });
 
 /* ================= Ausgabe ================= */

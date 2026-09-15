@@ -292,6 +292,57 @@ else {
   O(`hidden schlägt display durch (${betroffen.length} Element(e) darauf angewiesen)`);
 }
 
+/* ---------- 12a1. iOS zoomt nicht von selbst ---------- */
+/* Zwei Ursachen, beide nur auf iOS sichtbar und fuer den Smoketest
+   unsichtbar, weil sein DOM kein CSS kennt:
+   1. Doppeltipp-Zoom: schnelles Durchtippen der Stufen zoomte die Seite.
+      Abhilfe ist touch-action: manipulation auf html – ohne Timer.
+   2. Fokus-Zoom: WebKit zoomt in jedes Formularfeld unter 16 px. */
+{
+  const zoomFehler = [];
+  /* Kommentare vor einer Regel landen sonst im Selektortext. */
+  const cssOhneKommentar = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const htmlRegel = [...cssOhneKommentar.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+    .some(m => m[1].split(',').map(x => x.trim()).includes('html') &&
+               /touch-action\s*:\s*manipulation/.test(m[2]));
+  if (!htmlRegel) zoomFehler.push('touch-action: manipulation auf html fehlt – iOS zoomt bei Doppeltipp');
+
+  /* Klassen und IDs, die an Formularfeldern haengen – im Markup und in el(). */
+  const feldSel = new Set(['input', 'select', 'textarea']);
+  const markupTeil = html.slice(html.indexOf('</style>'));
+  for (const m of markupTeil.matchAll(/<(input|select|textarea)\b([^>]*)>/g)) {
+    if (/type="(checkbox|radio|file|hidden)"/.test(m[2])) continue;
+    const id = /\bid="([^"]+)"/.exec(m[2]); if (id) feldSel.add('#' + id[1]);
+    const kl = /\bclass="([^"]+)"/.exec(m[2]);
+    if (kl) kl[1].split(/\s+/).forEach(c => feldSel.add('.' + c));
+  }
+  for (const m of js.matchAll(/el\(\s*"(input|select|textarea)"\s*,\s*\{\s*className:\s*"([\w -]+)"/g))
+    m[2].split(/\s+/).forEach(c => feldSel.add('.' + c));
+
+  for (const m of cssOhneKommentar.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+    const gr = /font-size\s*:\s*(\d+(?:\.\d+)?)px/.exec(m[2]);
+    if (!gr || Number(gr[1]) >= 16) continue;
+    const sels = m[1].split(',').map(x => x.trim()).filter(Boolean);
+    const trifft = sels.filter(sel => {
+      const letzter = sel.split(/\s+/).pop();
+      if (/\[type="(checkbox|radio)"\]/.test(letzter)) return false;
+      const teile = letzter.match(/^[a-z]+|[.#][\w-]+/g) || [];
+      return teile.some(t => feldSel.has(t));
+    });
+    if (trifft.length) zoomFehler.push(`${trifft.join(', ')} hat ${gr[1]}px – iOS zoomt beim Antippen (mindestens 16px)`);
+  }
+  zoomFehler.forEach(E);
+  if (!zoomFehler.length) O(`iOS-Zoom abgesichert (Doppeltipp und ${feldSel.size} Formularfeld-Selektoren ≥ 16px)`);
+}
+
+/* Die Obergrenze der gemerkten Aufgaben steht in Zahl und Text. */
+{
+  const tm = (js.match(/const TASK_MAX\s*=\s*(\d+)/) || [])[1];
+  if (!tm) E('TASK_MAX fehlt');
+  else if (packs && ['de', 'en'].some(l => String(packs[l].msgTaskLimit || '').indexOf(tm) === -1))
+    E(`msgTaskLimit nennt nicht die Obergrenze ${tm}`);
+}
+
 /* ---------- 12a2. Vom Skript gesetzte Klassen gibt es auch im CSS ---------- */
 /* Zweite Hälfte derselben Fehlerklasse: das Skript schaltet eine Klasse
    ein, die im Stylesheet gar nicht steht. Die Logik meldet Erfolg, sichtbar

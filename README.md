@@ -103,4 +103,4 @@ Lite öffnet den Store-Eintrag von Pro – vorher zeigt er ins Leere.
 
 ## Version
 
-1.22.1 (versionCode 12201)
+1.23.0 (versionCode 12300)

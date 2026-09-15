@@ -77,14 +77,14 @@ fi
 # ---- Pruefen ----
 # Erst der Quellbaum: dort laufen beide Fassungen durch den Smoketest.
 echo "== Pruefungen im Quellbaum =="
-node validate.js > /dev/null && echo "  Validator (Pro) bestanden"
-node smoketest.js | tail -1
-node stresstest.js > /dev/null && echo "  Stresstest bestanden"
+timeout 60 node validate.js > /dev/null && echo "  Validator (Pro) bestanden"
+timeout 120 node smoketest.js | tail -1
+timeout 180 node stresstest.js > /dev/null && echo "  Stresstest bestanden"
 
 echo "== Pruefungen im Lite-Build =="
 cd "$ZIEL"
-FAIRMIX_LITE=1 node validate.js | tail -1
-node smoketest.js | tail -1
+FAIRMIX_LITE=1 timeout 60 node validate.js | tail -1
+timeout 120 node smoketest.js | tail -1
 cd ..
 
 echo

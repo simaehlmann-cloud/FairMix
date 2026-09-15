@@ -1,4 +1,4 @@
-# FairMix – Projektwissen, Stand 1.22.1
+# FairMix – Projektwissen, Stand 1.23.0
 
 Das ist der **Pro-Stand**. Die Lite-Fassung wird daraus erzeugt und nie
 getrennt gepflegt (`build-lite.sh`).
@@ -47,12 +47,12 @@ aus `colors.xml` (`fairmix_icon_background`, #f4f8fc).
 
 ## Stand
 
-- Version 1.22.1, versionCode 12201, Service-Worker-Cache `fairmix-1.22.1`
+- Version 1.23.0, versionCode 12300, ios-CFBundleVersion 12300, Service-Worker-Cache `fairmix-1.23.0`
   (Der Cache-Name trägt die Version; validate.js erzwingt das.)
 - Paketkennung Pro: `de.fairmix.app`   Lite: `de.fairmix.lite`
-- 249 Smoketests (Pro und Lite aus einer Quelle), Validator, Stresstest
-- Prüfkette: `node make-legal-pages.js`, `node validate.js`, `node smoketest.js`,
-  `node stresstest.js`,
+- 259 Smoketests (Pro und Lite aus einer Quelle), Validator, Stresstest
+- Prüfkette: `node make-legal-pages.js`, `timeout 60 node validate.js`,
+  `timeout 120 node smoketest.js`, `timeout 180 node stresstest.js`,
   `./mutate.sh` nach einer eingebauten Mutation, `./build-lite.sh`
 - CI: Node 22, Actions auf Node-24-Laufzeit (Stand August 2026)
 

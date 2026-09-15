@@ -1,3 +1,51 @@
+# FairMix 1.23.0 – Aufgaben beim Ziehen, iOS-Zoom behoben
+
+259 Abläufe (10 neu), Validator, Stresstest und Lite-Build grün.
+versionCode 12300, ios-CFBundleVersion 12300, Service-Worker-Cache `fairmix-1.23.0`.
+
+**iOS zoomte beim Durchtippen der Stufen von selbst.** Zwei schnelle Taps
+auf den Stufen-Knopf wertet WebKit als Doppeltipp-Zoom. Android kennt das
+bei Knöpfen nicht, deshalb fiel es erst in TestFlight auf. Abhilfe ist reines
+CSS: `touch-action: manipulation` auf `html` und allen Bedienelementen. Das
+schaltet nur diesen Zoom ab; Wischen und Pinch-Zoom bleiben erhalten, es gibt
+keinen Timer und keine Schleife. Nebenbei lag die Rollenauswahl bei 14 px –
+dort hätte iOS beim Antippen hineingezoomt. Jetzt 16 px.
+`validate.js` prüft beides: die Regel auf `html` und dass kein
+Formularfeld unter 16 px liegt.
+
+**Neu: Aufgaben beim Ziehen (nur Pro).** Auf der Ziehungsseite lässt sich
+eine Aufgabe wie „Tafeldienst“ eintragen oder aus gemerkten Aufgaben antippen.
+Sie erscheint groß über dem gezogenen Namen. Einschalten unter
+Einstellungen → Funktionen, standardmäßig aus, in Lite gesperrt.
+Die faire Runde gilt für alle Aufgaben gemeinsam – es gibt keinen Zähler je
+Aufgabe. Wer welche Aufgabe gezogen hat, wird nicht gespeichert. Gemerkt
+werden höchstens 30 Aufgaben, je 40 Zeichen; Aufgaben aus einer Sicherung
+durchlaufen dieselbe Säuberung wie eigene Eingaben.
+
+**Datenschutzerklärung ergänzt** (Abschnitt 3, Stand September 2026) und
+`docs/` neu erzeugt.
+
+**Prüfkette hängt nicht mehr.** Der `setTimeout`-Stub im Smoketest führt
+kurze Verzögerungen sofort aus; eine selbstaufrufende Schleife wäre dort
+endlos gelaufen. Die Aufruftiefe ist jetzt auf 50 begrenzt, darüber bricht
+der Ablauf mit einer klaren Meldung ab. `mutate.sh` und `build-lite.sh`
+starten jeden Testlauf mit `timeout`; eine Mutation, die das Zeitlimit
+sprengt, zählt als erkannt.
+
+**Gegenprüfung vor dem Hochladen.** Die Aufgabenschrift hatte auf dem
+hellblauen Hintergrund nur 2,95 : 1 Kontrast – jetzt #8a4f00 mit 4,63 : 1.
+Im Querformat klebte sie am Rahmen der Namensbox, lange Aufgaben ohne
+Leerzeichen konnten auf schmalen Displays überlaufen; beides korrigiert.
+Die Ladeschleife bricht an der Obergrenze ab, statt eine präparierte Liste
+ganz zu durchlaufen. In der Datenschutzerklärung stand, „Alle löschen“
+entferne alle Daten vollständig – die Funktion löscht aber nur die Namen
+samt Zuordnungen, nicht gespeicherte Klassen, Einstellungen oder Aufgaben.
+Der Satz beschreibt jetzt, was tatsächlich passiert.
+
+20 Mutationen dagegengehalten, alle erkannt.
+
+---
+
 # FairMix 1.22.1a – Prüfkette nachgezogen
 
 249 Abläufe, Validator, Stresstest und Lite-Build grün.

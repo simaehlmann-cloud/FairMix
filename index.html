@@ -190,6 +190,13 @@ input, select, textarea {
 }
 input::placeholder { color: var(--text-muted); opacity: 1; }
 
+/* iOS wertet zwei schnelle Taps als Doppeltipp-Zoom – beim Durchtippen der
+   Stufen (ohne, A, B, C) zoomte die Seite von selbst. manipulation schaltet
+   nur diesen Zoom ab; Wischen und Pinch-Zoom bleiben erhalten. Wirkt auf
+   dem Element und seinen Vorfahren, deshalb auch auf html. Die Griffe zum
+   Verschieben behalten ihr eigenes touch-action: none. */
+html, button, a, input, select, textarea, label { touch-action: manipulation; }
+
 .field-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--sp-1); }
 
 /* ---------- Karten & Container ---------- */
@@ -306,6 +313,24 @@ body.dark-mode .chip.lvl-1 { background: #1f3d1f; border-color: #6fbf6f; }
 body.dark-mode .chip.lvl-2 { background: #16324f; border-color: #5b9ce6; }
 body.dark-mode .chip.lvl-3 { background: #4a2f14; border-color: #e0873c; }
 
+/* ---------- Aufgaben beim Ziehen ---------- */
+.task-box { width: min(420px, 100%); margin: var(--sp-3) auto 0; }
+.task-box .field-row input { flex: 1 1 180px; }
+.task-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); justify-content: center; margin: var(--sp-2) 0; }
+.task-chip { display: inline-flex; align-items: stretch; max-width: 100%; }
+.task-chip .chip { border-radius: 20px 0 0 20px; border-right-width: 1px; min-width: 0; overflow-wrap: anywhere; }
+.task-remove {
+  border: 2px solid var(--border-color); border-left-width: 1px; border-radius: 0 20px 20px 0;
+  background: var(--input-bg); color: var(--text-muted); font-size: 16px; font-family: inherit;
+  min-width: 40px; min-height: 42px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.task-display {
+  display: none; margin: var(--sp-5) auto calc(-1 * var(--sp-3)); width: min(420px, 100%);
+  font-size: clamp(22px, 5.5vw, 30px); font-weight: 800; color: #8a4f00; word-break: break-word;
+}
+body.dark-mode .task-display { color: #ffc56b; }
+.task-display.visible { display: block; }
+
 /* ---------- Gluecksrad ---------- */
 .wheel-box { position: relative; width: 100%; max-width: 340px; margin: var(--sp-4) auto; }
 .wheel-box svg { width: 100%; height: auto; display: block; }
@@ -376,7 +401,7 @@ body.dark-mode .fixedPerson { background: #4a3f14; }
   border: 1px solid #0055aa; width: fit-content; max-width: 100%;
 }
 body.dark-mode .role-badge { background: #16324f; color: #cfe4ff; border-color: #5b9ce6; }
-.role-select { width: 100%; margin-top: var(--sp-2); padding: 8px; font-size: 14px; min-height: 42px; }
+.role-select { width: 100%; margin-top: var(--sp-2); padding: 8px; font-size: 16px; min-height: 42px; }
 
 /* Kompakter Rollen-Chip: zeigt nur Symbol oder Kürzel, auf Tipp die Bezeichnung */
 .role-chip {
@@ -621,6 +646,7 @@ body.dark-mode .text-link { color: var(--border-color); }
   .btn { padding: 10px 18px; font-size: 16px; }
   .start-btn { padding: 14px 20px; font-size: 18px; }
   .bigDisplay { font-size: clamp(20px, 5vh, 30px); min-height: 60px; margin: var(--sp-3) auto; }
+  .task-display { font-size: clamp(18px, 4.5vh, 26px); margin: var(--sp-3) auto calc(-1 * var(--sp-2)); }
   .wheel-box { max-width: min(46vh, 300px); }
   .chip-container { max-height: 150px; }
   .present-controls { padding: calc(8px + env(safe-area-inset-top)) 0 8px; margin-bottom: var(--sp-3); }
@@ -838,6 +864,18 @@ body.dark-mode .text-link { color: var(--border-color); }
  <div class="wrap">
   <h2 data-i18n="titleDraw">Zufällige Namensauswahl</h2>
   <p class="hint" data-i18n="hintDraw">Bei fairer Ziehung ist die ganze Klasse einmal dran, bevor sich jemand wiederholt.</p>
+   <div id="featureTasks" class="task-box" hidden>
+     <div class="field-row">
+       <input id="drawTaskInput" placeholder="Aufgabe, z. B. Tafeldienst" data-i18n-placeholder="placeholderTask" data-i18n-aria="titleTask" aria-label="Aufgabe" autocomplete="off" enterkeyhint="done" maxlength="40" oninput="onDrawTaskInput()" onchange="onDrawTaskChange()">
+     </div>
+     <div class="btn-row">
+       <button class="btn green small" onclick="saveDrawTask()" data-i18n="btnSaveTask">Aufgabe merken</button>
+       <button class="btn blue small" onclick="clearDrawTask()" data-i18n="btnClearTask">Ohne Aufgabe</button>
+     </div>
+     <div id="taskChipList" class="task-chips"></div>
+     <p id="taskEmptyHint" class="hint" data-i18n="hintTaskEmpty">Gemerkte Aufgaben erscheinen hier und lassen sich antippen.</p>
+     <p class="hint" data-i18n="hintTaskPrivacy">Die Aufgabe steht groß über dem gezogenen Namen. Die Runde gilt für alle Aufgaben gemeinsam; wer welche Aufgabe gezogen hat, wird nicht gespeichert.</p>
+   </div>
   <div class="btn-row">
     <button class="btn blue" onclick="pickRandomNameWithAnimation()" data-i18n="btnDraw">Ziehen</button>
     <button class="btn red"  onclick="resetDraw()" data-i18n="btnResetDraw">Neue Runde</button>
@@ -853,6 +891,7 @@ body.dark-mode .text-link { color: var(--border-color); }
   </div>
   <p id="wheelNote" class="hint" hidden data-i18n="wheelTooMany">Viele Namen – das Rad zeigt Initialen.</p>
 
+  <div id="drawTaskDisplay" class="task-display" aria-live="polite"></div>
   <div id="bigDisplayDraw" class="bigDisplay" aria-live="polite"></div>
   <div><button class="btn red" onclick="showPage('pageStart')" data-i18n="btnBackToStart">Zur Startseite</button></div>
  </div>
@@ -1135,7 +1174,7 @@ body.dark-mode .text-link { color: var(--border-color); }
 /* =================================================================
    FairMix Pro
    ================================================================= */
-const APP_VERSION = "1.22.1";
+const APP_VERSION = "1.23.0";
 
 /* -------------------------------------------------
    0  Fassung: Lite oder Pro
@@ -1149,7 +1188,7 @@ const IS_LITE = false;
 
 /* Funktionen, die Lite nicht anbietet. "data" steuert nur den Import –
    der Export bleibt in beiden Fassungen erreichbar, siehe canExport(). */
-const LITE_LOCKED = ['roles', 'fixed', 'rules', 'levels', 'partners', 'jigsaw', 'classes', 'data'];
+const LITE_LOCKED = ['roles', 'fixed', 'rules', 'levels', 'partners', 'jigsaw', 'tasks', 'classes', 'data'];
 
 /* Ziel des Umstiegs-Knopfes. Bewusst als Zeichenkette im Skript und nicht
    als href im Markup: die App darf keine externen Ressourcen laden. */
@@ -1242,6 +1281,19 @@ const i18n = {
     aboutLite: "Du nutzt FairMix Lite. Namen verwalten, ziehen und Gruppen bilden – manuell wie zufällig – sind vollständig enthalten und bleiben kostenlos. Welche Funktionen zu FairMix Pro gehören, zeigt dir der Knopf darunter. Der Export ist auch hier frei: deine Namen gehören dir.",
     featJigsaw: "Gruppenpuzzle",
     featJigsawHint: "Stamm- und Expertengruppen nach Themen bilden",
+    featTasks: "Aufgaben beim Ziehen",
+    featTasksHint: "Beim Ziehen eine Aufgabe wie „Tafeldienst“ eintragen oder aus gemerkten Aufgaben wählen.",
+    titleTask: "Aufgabe",
+    placeholderTask: "Aufgabe, z. B. Tafeldienst",
+    btnSaveTask: "Aufgabe merken",
+    btnClearTask: "Ohne Aufgabe",
+    hintTaskEmpty: "Gemerkte Aufgaben erscheinen hier und lassen sich antippen.",
+    hintTaskPrivacy: "Die Aufgabe steht groß über dem gezogenen Namen. Die Runde gilt für alle Aufgaben gemeinsam; wer welche Aufgabe gezogen hat, wird nicht gespeichert.",
+    msgTaskEmpty: "Bitte zuerst eine Aufgabe eintragen.",
+    msgTaskExists: "Diese Aufgabe ist schon gemerkt.",
+    msgTaskLimit: "Es lassen sich höchstens 30 Aufgaben merken.",
+    msgTaskSaved: "Aufgabe gemerkt.",
+    ariaRemoveTask: "Aufgabe entfernen",
     titleJigsaw: "Gruppenpuzzle",
     hintJigsaw: "Ein Thema je Zeile. Jede Stammgruppe bekommt einen Kopf pro Thema, die Expertengruppen sammeln alle zum selben Thema.",
     hintJigsawLocked: "Regeln, fixierte Personen und Stufen gibt es hier nicht – beim Gruppenpuzzle bestimmen die Themen, wer wohin kommt. Zurück geht es oben über „Automatisch“.",
@@ -1566,6 +1618,19 @@ const i18n = {
     aboutLite: "You are using FairMix Lite. Managing names, drawing, and building groups \u2013 by hand or at random \u2013 are fully included and stay free. The button below shows which features belong to FairMix Pro. The export is free here too: your names are yours.",
     featJigsaw: "Jigsaw method",
     featJigsawHint: "Build home and expert groups from topics",
+    featTasks: "Tasks when drawing",
+    featTasksHint: "Enter a task such as \u201cboard duty\u201d when drawing, or pick one of your saved tasks.",
+    titleTask: "Task",
+    placeholderTask: "Task, e.g. board duty",
+    btnSaveTask: "Save task",
+    btnClearTask: "No task",
+    hintTaskEmpty: "Saved tasks appear here and can be tapped.",
+    hintTaskPrivacy: "The task is shown in large letters above the drawn name. The round is shared by all tasks; who drew which task is not stored.",
+    msgTaskEmpty: "Please enter a task first.",
+    msgTaskExists: "This task is already saved.",
+    msgTaskLimit: "You can save up to 30 tasks.",
+    msgTaskSaved: "Task saved.",
+    ariaRemoveTask: "Remove task",
     titleJigsaw: "Jigsaw method",
     hintJigsaw: "One topic per line. Every home group gets one person per topic; each expert group collects everyone on the same topic.",
     hintJigsawLocked: "There are no rules, fixed persons or levels here \u2013 in the jigsaw the topics decide who goes where. Use \u201cAutomatic\u201d above to go back.",
@@ -1911,9 +1976,15 @@ let currentClass  = "";          /* Name der aktiven Klasse, "" = ungespeichert 
 let fairDraw      = true;        /* bevorzugt, wer selten dran war */
 let lastBackup    = 0;           /* Zeitpunkt des letzten Exports, 0 = nie */
 let backupNagOff  = false;       /* Erinnerung dauerhaft abgeschaltet */
+/* Aufgaben beim Ziehen: gemerkte Aufgaben und die gerade eingestellte.
+   Bewusst ohne Bezug zu Namen – wer welche Aufgabe gezogen hat, wird
+   nirgends festgehalten. Die faire Runde gilt fuer alle Aufgaben gemeinsam. */
+let drawTasks     = [];
+let drawTask      = "";
+const TASK_MAX    = 30;          /* hoechstens so viele gemerkte Aufgaben */
 /* Die App startet bewusst schlank: Zusatzbereiche sind zunächst aus,
    damit die Startseite niemanden überfordert. */
-const FEATURE_DEFAULTS = { roles: false, fixed: false, rules: false, levels: false, partners: false, jigsaw: false, classes: true, data: true };
+const FEATURE_DEFAULTS = { roles: false, fixed: false, rules: false, levels: false, partners: false, jigsaw: false, tasks: false, classes: true, data: true };
 let features      = Object.assign({}, FEATURE_DEFAULTS);
 
 const LEVEL_LABELS = ["", "A", "B", "C"];
@@ -1932,6 +2003,7 @@ const FEATURES = [
   { key: 'levels', label: 'featLevels', hint: 'featLevelsHint' },
   { key: 'partners', label: 'featPartners', hint: 'featPartnersHint' },
   { key: 'jigsaw', label: 'featJigsaw', hint: 'featJigsawHint' },
+  { key: 'tasks', label: 'featTasks', hint: 'featTasksHint' },
   { key: 'classes', label: 'featClasses', hint: 'featClassesHint' },
   { key: 'data',  label: 'featData',  hint: 'featDataHint'  }
 ];
@@ -1988,7 +2060,7 @@ function saveState() {
     fixedPersons, customRoles, activeRoleIds, drawnGroups, pairRules, drawCounts, pairHistory, features,
     currentClass,
     levels, levelMode, drawStyle, fairDraw, lastBackup, backupNagOff,
-    timerMinutes, timerSound, showDemoHint,
+    timerMinutes, timerSound, showDemoHint, drawTasks, drawTask,
     roleChoiceMigrated: true
   };
   try {
@@ -2063,6 +2135,20 @@ function loadState() {
     fairDraw      = s.fairDraw      !== false;
     lastBackup    = (typeof s.lastBackup === "number" && s.lastBackup > 0) ? s.lastBackup : 0;
     backupNagOff  = s.backupNagOff === true;
+    /* Aufgaben koennen aus einer fremden Sicherung stammen und durchlaufen
+       dieselbe Saeuberung wie eigene Eingaben. */
+    drawTasks = [];
+    if (Array.isArray(s.drawTasks)) {
+      /* Schleife statt forEach: bricht an der Obergrenze ab, auch wenn eine
+         praeparierte Datei Millionen Eintraege mitbringt. */
+      for (let i = 0; i < s.drawTasks.length && drawTasks.length < TASK_MAX; i++) {
+        const x = s.drawTasks[i];
+        if (typeof x !== "string") continue;
+        const c = cleanTask(x);
+        if (c && !taskIndex(drawTasks, c).found) drawTasks.push(c);
+      }
+    }
+    drawTask = (typeof s.drawTask === "string") ? cleanTask(s.drawTask) : "";
     /* Gruppen defensiv normalisieren */
     Object.keys(groups).forEach(g => {
       groups[g] = Array.isArray(groups[g])
@@ -2193,6 +2279,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindEnter("groupNameInput", addGroup, true);
   bindEnter("saveNameInput", saveNames, false);
   bindEnter("dialogInput", () => closeDialog(true), false);
+  bindEnter("drawTaskInput", saveDrawTask, false);
 
   const tCount = document.getElementById("teamCount");
   const tSize  = document.getElementById("teamSize");
@@ -2413,6 +2500,8 @@ function applyFeatureVisibility() {
   set("featureLevels", featureOn('levels'));
   set("featurePartners", featureOn('partners'));
   set("featureLevelMode", featureOn('levels'));
+  set("featureTasks", featureOn('tasks'));
+  if (!featureOn('tasks')) showTaskDisplay("");
 
   /* Immer nur ein Bauweg. Die Regeln, Stufen und fixierten Personen
      liegen in autoTeamsBox und verschwinden mit ihm – sie haetten im
@@ -2460,6 +2549,7 @@ function renderAll() {
   renderRoleManagement();
   updateRoleFormMode();
   updateDrawStatus();
+  renderTaskChips();
 }
 
 /* -------------------------------------------------
@@ -2480,7 +2570,7 @@ function showPage(id) {
   const navBtn = document.getElementById("nav-" + id);
   if (navBtn) navBtn.classList.add('active-nav');
 
-  document.querySelectorAll('.bigDisplay').forEach(d => d.classList.remove('visible'));
+  document.querySelectorAll('.bigDisplay, .task-display').forEach(d => d.classList.remove('visible'));
   window.scrollTo(0, 0);
   renderAll();
 }
@@ -4074,6 +4164,9 @@ function pickRandomNameWithAnimation() {
   if (!chosen) return;
 
   isAnimating = true;
+  /* Die Aufgabe steht schon waehrend der Animation ueber dem Namen. Ein
+     Zaehler je Aufgabe gibt es nicht: gezogen wird aus derselben Runde. */
+  showTaskDisplay(activePageId() === "pageDraw" ? currentDrawTask() : "");
 
   if (drawStyle === "wheel" && wheelIsVisible('draw')) {
     /* Waehrend der Drehung bleibt das Namensfeld leer statt leer zu pulsieren */
@@ -4109,7 +4202,128 @@ function resetDraw() {
   renderAll();
   const disp = getDisplay();
   if (disp) disp.classList.remove("visible");
+  showTaskDisplay("");
   showUndoToast(t('msgDrawReset'));
+}
+
+/* ---------- Aufgaben beim Ziehen ---------- */
+
+/* Gleiche Saeuberung wie bei Namen und Themen. */
+function cleanTask(raw) {
+  return String(raw === undefined || raw === null ? "" : raw)
+    .replace(/[\u0000-\u001F\u007F]/g, "").trim()
+    .replace(/\s+/g, " ").slice(0, NAME_MAX_LEN);
+}
+
+/* "Tafeldienst" und "tafeldienst" sind dieselbe Aufgabe. */
+function taskIndex(liste, name) {
+  const k = name.toLocaleLowerCase();
+  const i = liste.findIndex(x => x.toLocaleLowerCase() === k);
+  return { found: i !== -1, index: i };
+}
+
+/* Die Aufgabe der naechsten Ziehung. Ohne eingeschaltete Funktion keine –
+   auch dann nicht, wenn im Speicher noch eine steht (Lite, abgeschaltet). */
+function currentDrawTask() {
+  if (!featureOn('tasks')) return "";
+  const feld = document.getElementById("drawTaskInput");
+  return cleanTask(feld ? feld.value : drawTask);
+}
+
+function showTaskDisplay(task) {
+  const node = document.getElementById("drawTaskDisplay");
+  if (!node) return;
+  node.textContent = task || "";
+  node.classList.toggle("visible", !!task);
+}
+
+/* Tippen: nur merken. Verlassen des Feldes: speichern. */
+function onDrawTaskInput() {
+  const feld = document.getElementById("drawTaskInput");
+  drawTask = cleanTask(feld.value);
+  renderTaskChips();
+}
+function onDrawTaskChange() {
+  onDrawTaskInput();
+  saveState();
+}
+
+function saveDrawTask() {
+  const feld = document.getElementById("drawTaskInput");
+  const n = cleanTask(feld.value);
+  if (!n) return notify(t('msgTaskEmpty'), true);
+  const treffer = taskIndex(drawTasks, n);
+  if (treffer.found) {
+    drawTask = drawTasks[treffer.index];
+    feld.value = drawTask;
+    saveState();
+    renderTaskChips();
+    return notify(t('msgTaskExists'));
+  }
+  if (drawTasks.length >= TASK_MAX) return notify(t('msgTaskLimit'), true);
+  drawTasks.push(n);
+  drawTask = n;
+  feld.value = n;
+  saveState();
+  renderTaskChips();
+  notify(t('msgTaskSaved'));
+}
+
+/* Eine gemerkte Aufgabe antippen waehlt sie; nochmal antippen hebt die
+   Auswahl auf, dann wird ohne Aufgabe gezogen. */
+function chooseDrawTask(name) {
+  if (isAnimating) return;
+  drawTask = (drawTask === name) ? "" : name;
+  document.getElementById("drawTaskInput").value = drawTask;
+  saveState();
+  renderTaskChips();
+}
+
+function removeDrawTask(name) {
+  if (isAnimating) return;
+  drawTasks = drawTasks.filter(x => x !== name);
+  if (drawTask === name) {
+    drawTask = "";
+    document.getElementById("drawTaskInput").value = "";
+  }
+  saveState();
+  renderTaskChips();
+}
+
+function clearDrawTask() {
+  if (isAnimating) return;
+  drawTask = "";
+  document.getElementById("drawTaskInput").value = "";
+  saveState();
+  renderTaskChips();
+}
+
+function renderTaskChips() {
+  const box = document.getElementById("taskChipList");
+  if (!box) return;
+  const feld = document.getElementById("drawTaskInput");
+  /* Nicht in ein Feld schreiben, in dem gerade getippt wird. */
+  if (feld && document.activeElement !== feld) feld.value = drawTask;
+  box.innerHTML = "";
+  drawTasks.forEach(name => {
+    const wrap = el("span", { className: "task-chip" });
+    const chip = el("button", {
+      className: "chip" + (name === drawTask ? " selected" : ""),
+      text: name, type: "button",
+      onClick: () => chooseDrawTask(name)
+    });
+    chip.setAttribute("aria-pressed", name === drawTask ? "true" : "false");
+    const weg = el("button", {
+      className: "task-remove", text: "\u2715", type: "button",
+      aria: t('ariaRemoveTask') + ": " + name,
+      onClick: () => removeDrawTask(name)
+    });
+    wrap.appendChild(chip);
+    wrap.appendChild(weg);
+    box.appendChild(wrap);
+  });
+  const leer = document.getElementById("taskEmptyHint");
+  if (leer) leer.hidden = drawTasks.length > 0;
 }
 
 /* -------------------------------------------------
