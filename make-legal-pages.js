@@ -34,6 +34,8 @@ function fuerWeb(html) {
   return html
     .replace(/href="index\.html">Zurück zur App</g,
              'href="../">Zur Übersicht<')
+    .replace(/href="index\.html">Back to the app</g,
+             'href="../">Overview<')
     .replace(/<title>([^<]*)<\/title>/,
              '<title>$1</title>\n<meta name="robots" content="index, follow">');
 }
@@ -71,6 +73,8 @@ const START = `<!DOCTYPE html>
   <ul>
     <li><a href="fairmix/datenschutz.html">Datenschutzerklärung</a></li>
     <li><a href="fairmix/impressum.html">Impressum</a></li>
+    <li><a href="fairmix/datenschutz-en.html">Privacy Policy (English)</a></li>
+    <li><a href="fairmix/impressum-en.html">Legal Notice (English)</a></li>
   </ul>
 
   <p>Kontakt: <a href="mailto:smaehlmann.appdev@gmail.com">smaehlmann.appdev@gmail.com</a></p>
@@ -87,7 +91,11 @@ function erwarteteDateien() {
     [path.join(ZIEL, 'fairmix', 'datenschutz.html')]:
       fuerWeb(fs.readFileSync('datenschutz.html', 'utf8')),
     [path.join(ZIEL, 'fairmix', 'impressum.html')]:
-      fuerWeb(fs.readFileSync('impressum.html', 'utf8'))
+      fuerWeb(fs.readFileSync('impressum.html', 'utf8')),
+    [path.join(ZIEL, 'fairmix', 'datenschutz-en.html')]:
+      fuerWeb(fs.readFileSync('datenschutz-en.html', 'utf8')),
+    [path.join(ZIEL, 'fairmix', 'impressum-en.html')]:
+      fuerWeb(fs.readFileSync('impressum-en.html', 'utf8'))
   };
 }
 

@@ -453,10 +453,17 @@ if (!errors.some(e => /IS_LITE|LITE_LOCKED|canExport|Sicherung|Import wertet|Zur
 
 /* ---------- 13. Rechtstexte: vollständig und widerspruchsfrei ---------- */
 const legal = {
-  'impressum.html':   fs.readFileSync('impressum.html', 'utf8'),
-  'datenschutz.html': fs.readFileSync('datenschutz.html', 'utf8'),
-  'config.xml':       cfg
+  'impressum.html':      fs.readFileSync('impressum.html', 'utf8'),
+  'datenschutz.html':    fs.readFileSync('datenschutz.html', 'utf8'),
+  'impressum-en.html':   fs.readFileSync('impressum-en.html', 'utf8'),
+  'datenschutz-en.html': fs.readFileSync('datenschutz-en.html', 'utf8'),
+  'config.xml':          cfg
 };
+/* Die englischen Fassungen sind Uebersetzungen derselben Angaben. Sie
+   durchlaufen dieselben Pruefungen: Anbieter, Anschrift, Kontakt. Eine
+   Uebersetzung, die den Anbieter nicht mehr nennt, waere wertlos. */
+const RECHTSTEXTE = ['impressum.html', 'datenschutz.html',
+                     'impressum-en.html', 'datenschutz-en.html'];
 const MAIL = 'smaehlmann.appdev@gmail.com';
 const MUST = ['Wisdompeak Apps', 'Simon Mählmann', 'Oderstraße 13', '28844 Weyhe'];
 
@@ -464,16 +471,30 @@ for (const [file, text] of Object.entries(legal)) {
   if (!text.includes(MAIL)) E(`${file} nennt nicht die Kontaktadresse ${MAIL}`);
   if (/info@fairmix\.de|fairmix\.de|Simon Mähl[^m]/.test(text)) E(`${file} enthält veraltete Anbieterangaben`);
 }
-for (const f of ['impressum.html', 'datenschutz.html']) {
+for (const f of RECHTSTEXTE) {
   const fehlt = MUST.filter(m => !legal[f].includes(m));
   if (fehlt.length) E(`${f} fehlt: ${fehlt.join(', ')}`);
 }
-if (/class="todo"|Bitte hier|PLATZHALTER|TODO/i.test(legal['impressum.html'] + legal['datenschutz.html']))
+if (/class="todo"|Bitte hier|PLATZHALTER|TODO/i.test(RECHTSTEXTE.map(f => legal[f]).join('')))
   E('In den Rechtstexten steht noch ein Platzhalter');
 if (/ec\.europa\.eu\/consumers\/odr|OS-Plattform|Online-Streitbeilegung/.test(legal['impressum.html']))
   E('Impressum verweist auf die abgeschaltete OS-Plattform (abmahnfähig)');
 if (!/§ 5 DDG/.test(legal['impressum.html'])) E('Impressum ohne Bezug auf § 5 DDG');
-if (!errors.some(e => /impressum|datenschutz|config\.xml nennt/.test(e))) O('Rechtstexte vollständig und widerspruchsfrei');
+if (!/§ 5 DDG/.test(legal['impressum-en.html'])) E('Englisches Impressum ohne Bezug auf § 5 DDG');
+
+/* Jede Seite muss ihre Gegenstuecke erreichbar machen: die andere Sprache
+   und den jeweils anderen Rechtstext. Faellt ein Verweis weg, landen
+   Nutzer in einer Sackgasse - im Web wie in der App. */
+const VERWEISE = {
+  'impressum.html':      ['datenschutz.html', 'impressum-en.html'],
+  'datenschutz.html':    ['impressum.html', 'datenschutz-en.html'],
+  'impressum-en.html':   ['datenschutz-en.html', 'impressum.html'],
+  'datenschutz-en.html': ['impressum-en.html', 'datenschutz.html']
+};
+for (const [f, ziele] of Object.entries(VERWEISE))
+  for (const z of ziele)
+    if (!legal[f].includes('href="' + z + '"')) E(`${f} verweist nicht auf ${z}`);
+if (!errors.some(e => /impressum|datenschutz|config\.xml nennt/.test(e))) O('Rechtstexte vollständig und widerspruchsfrei, deutsch und englisch');
 
 /* ---------- 13b. Webfassung der Rechtstexte ---------- */
 /* docs/ wird von GitHub Pages ausgeliefert und ist die Adresse, die im

@@ -21,7 +21,8 @@ LITE_ID="de.fairmix.lite"
 
 echo "== FairMix Lite bauen =="
 
-for f in index.html config.xml manifest.json sw.js datenschutz.html impressum.html mutate.sh \
+for f in index.html config.xml manifest.json sw.js datenschutz.html impressum.html \
+         datenschutz-en.html impressum-en.html mutate.sh \
          make-legal-pages.js \
          validate.js smoketest.js stresstest.js README.md make-lite-icons.py; do
   [ -f "$f" ] || { echo "FEHLT: $f"; exit 1; }
@@ -34,7 +35,8 @@ mkdir -p "$ZIEL/res/android"
 # Die App-Dateien plus die vollstaendige Pruefkette. Der Smoketest setzt
 # den Schalter fuer jeden seiner beiden Laeufe selbst und funktioniert
 # deshalb auch hier, wo index.html bereits auf Lite steht.
-cp datenschutz.html impressum.html validate.js smoketest.js stresstest.js \
+cp datenschutz.html impressum.html datenschutz-en.html impressum-en.html \
+   validate.js smoketest.js stresstest.js \
    mutate.sh README.md "$ZIEL/"
 cp res/android/colors.xml "$ZIEL/res/android/"
 

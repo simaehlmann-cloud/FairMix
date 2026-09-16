@@ -8,7 +8,7 @@
    APP_VERSION in der index.html: Wer die Version anhebt, ohne diese Zeile
    nachzuziehen, liefert Rueckkehrern sonst weiter die alte Fassung aus
    dem Cache aus. build-lite.sh setzt hier 'fairmixlite-' ein. */
-const CACHE = 'fairmix-1.23.0';
+const CACHE = 'fairmix-1.23.1';
 
 const ASSETS = [
   './',
@@ -16,6 +16,8 @@ const ASSETS = [
   './manifest.json',
   './datenschutz.html',
   './impressum.html',
+  './datenschutz-en.html',
+  './impressum-en.html',
   './icon.png',
   './icon-192.png',
   './icon-maskable-512.png'

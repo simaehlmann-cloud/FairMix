@@ -1,3 +1,29 @@
+# FairMix 1.23.1 – Rechtstexte auch auf Englisch
+
+259 Abläufe, Validator, Stresstest und Lite-Build grün.
+versionCode 12301, ios-CFBundleVersion 12301, Service-Worker-Cache `fairmix-1.23.1`.
+
+**Impressum und Datenschutzerklärung gibt es jetzt auch auf Englisch.**
+`impressum-en.html` und `datenschutz-en.html` liegen wie die deutschen
+Fassungen in der Wurzel und werden mit in die App kopiert. Jede Seite trägt
+unten einen Umschalter in die andere Sprache; die englischen Seiten weisen
+darauf hin, dass im Streitfall die deutsche Fassung gilt. Anlass ist die
+englische Store-Lokalisierung: Dort lässt sich eine eigene Datenschutz-Adresse
+hinterlegen, und eine deutsche Seite hinter einem englischen Eintrag ist keine.
+
+Der Weg dorthin berührte mehr als zwei Dateien, weil die Rechtstexte an fünf
+Stellen namentlich aufgezählt werden: die Kopierlisten in `ios.yml`,
+`android.yml` und `build-lite.sh`, die Vorab-Liste in `sw.js` (sonst fehlen die
+Seiten offline) und `make-legal-pages.js`, das `docs/` erzeugt. Die
+Übersichtsseite führt nun vier Rechtstexte.
+
+`validate.js` prüft die englischen Fassungen wie die deutschen – Anbieter,
+Anschrift, Kontaktadresse, kein Platzhalter, Bezug auf § 5 DDG – und zusätzlich,
+dass alle vier Seiten sich gegenseitig verlinken. Eine fehlende Sprachumschaltung
+fällt damit auf, bevor sie im Store landet.
+
+Inhaltlich sind die deutschen Texte unverändert.
+
 # FairMix 1.23.0 – Aufgaben beim Ziehen, iOS-Zoom behoben
 
 259 Abläufe (10 neu), Validator, Stresstest und Lite-Build grün.
