@@ -121,7 +121,8 @@ jobs:
           # Nur die tatsächlichen App-Dateien in www kopieren
           rm -rf build/www/*
           cp "$QUELLE"/index.html "$QUELLE"/manifest.json "$QUELLE"/sw.js \
-             "$QUELLE"/datenschutz.html "$QUELLE"/impressum.html build/www/
+             "$QUELLE"/datenschutz.html "$QUELLE"/impressum.html \
+             "$QUELLE"/datenschutz-en.html "$QUELLE"/impressum-en.html build/www/
           cp "$QUELLE"/icon.png "$QUELLE"/icon-192.png "$QUELLE"/icon-maskable-512.png build/www/
 
           # Kontrolle: was hier steht, landet im Store und ist danach
