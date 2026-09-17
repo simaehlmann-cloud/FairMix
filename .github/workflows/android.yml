@@ -279,14 +279,18 @@ jobs:
           # Gegenprobe: derselbe Wert direkt aus dem Keystore. Beide Zeilen
           # muessen uebereinstimmen; abweichende Schreibweise (Doppelpunkte,
           # Gross-/Kleinschreibung) wird vorher angeglichen.
+          # awk '{print $NF}' nimmt das letzte Feld der Zeile. Das ist in
+          # beiden Ausgaben der Fingerabdruck selbst. Ein Abschneiden per
+          # sed am Doppelpunkt waere falsch: keytool trennt die Bytes des
+          # Fingerabdrucks ebenfalls mit Doppelpunkten.
           AUS_APK=$("$APKSIGNER" verify --print-certs "$APK" \
             | grep -i -m1 "certificate SHA-256 digest" \
-            | sed 's/.*: *//' | tr -d ': ' | tr 'A-F' 'a-f')
+            | awk '{print $NF}' | tr -d ':' | tr 'A-F' 'a-f')
           AUS_KEYSTORE=$(keytool -list -v \
             -keystore "$RUNNER_TEMP/fairmix.keystore" \
             -alias "$KEY_ALIAS" -storepass "$STORE_PW" \
             | grep -i -m1 "SHA256:" \
-            | sed 's/.*: *//' | tr -d ': ' | tr 'A-F' 'a-f')
+            | awk '{print $NF}' | tr -d ':' | tr 'A-F' 'a-f')
 
           echo "APK:      $AUS_APK"
           echo "Keystore: $AUS_KEYSTORE"
