@@ -16,11 +16,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # secret_praefix waehlt die Signaturschluessel aus. Pro und Lite
+          # haben getrennte Keystores, weil Play Signatur und Kennung fest
+          # verknuepft: ein kompromittierter Schluessel betraefe sonst beide.
           - edition: pro
+            secret_praefix: ANDROID
             app_id: de.fairmix.app
             app_name: FairMix
             quelle: '.'
           - edition: lite
+            secret_praefix: ANDROID_LITE
             app_id: de.fairmix.lite
             app_name: FairMix Lite
             quelle: 'lite'
@@ -169,17 +174,22 @@ jobs:
           if-no-files-found: error
 
       # ---- Signierter Release-Build für den Play Store ----
-      # Erwartet vier Repository-Secrets:
-      #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
-      #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+      # Erwartet je Edition vier Repository-Secrets:
+      #   Pro:  ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+      #         ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+      #   Lite: dieselben Namen mit ANDROID_LITE_ davor
+      # Die Auswahl laeuft ueber matrix.secret_praefix. Bewusst kein
+      # Ausweichen auf die Pro-Secrets: fehlt ein Lite-Secret, bleibt der
+      # Release-Build aus, statt Lite mit dem Pro-Schluessel zu signieren –
+      # das waere in der Play Console nicht mehr rueckgaengig zu machen.
       - name: Keystore entschlüsseln
         id: keystore
         env:
-          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_B64: ${{ secrets[format('{0}_KEYSTORE_BASE64', matrix.secret_praefix)] }}
         run: |
           if [ -z "$KEYSTORE_B64" ]; then
             echo "vorhanden=false" >> "$GITHUB_OUTPUT"
-            echo "Kein Keystore hinterlegt – Release-Build wird übersprungen."
+            echo "Kein Keystore unter ${{ matrix.secret_praefix }}_KEYSTORE_BASE64 – Release-Build wird übersprungen."
             exit 0
           fi
 
@@ -201,10 +211,21 @@ jobs:
         if: steps.keystore.outputs.vorhanden == 'true'
         working-directory: build
         env:
-          STORE_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PW: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          STORE_PW: ${{ secrets[format('{0}_KEYSTORE_PASSWORD', matrix.secret_praefix)] }}
+          KEY_ALIAS: ${{ secrets[format('{0}_KEY_ALIAS', matrix.secret_praefix)] }}
+          KEY_PW: ${{ secrets[format('{0}_KEY_PASSWORD', matrix.secret_praefix)] }}
         run: |
+          set -e
+          # Ein fehlendes Passwort oder ein fehlender Alias erzeugt sonst eine
+          # Gradle-Fehlermeldung, die nicht erkennen laesst, woran es liegt.
+          for name in STORE_PW KEY_ALIAS KEY_PW; do
+            eval "wert=\$$name"
+            if [ -z "$wert" ]; then
+              echo "::error::Secret ${{ matrix.secret_praefix }}_… für $name fehlt oder ist leer."
+              exit 1
+            fi
+          done
+
           cat > build.json <<JSON
           {
             "android": {
