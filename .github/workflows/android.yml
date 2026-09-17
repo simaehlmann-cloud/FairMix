@@ -246,6 +246,56 @@ jobs:
           cordova build android --release -- --packageType=bundle
           rm -f build.json
 
+      # Kontrolle der Signatur. Cordova meldet auch dann Erfolg, wenn es
+      # einen anderen als den erwarteten Schluessel verwendet hat – sichtbar
+      # wird das erst am Fingerabdruck. Der erste Upload in die Play Console
+      # legt den Upload-Schluessel fuer die Kennung dauerhaft fest, deshalb
+      # wird hier vorher geprueft.
+      # keytool auf dem eigenen Rechner hilft nicht: es kennt nur das alte
+      # JAR-Verfahren (v1), Android signiert mit v2/v3.
+      - name: Signatur und Kennung bestätigen
+        if: steps.keystore.outputs.vorhanden == 'true'
+        working-directory: build
+        env:
+          STORE_PW: ${{ secrets[format('{0}_KEYSTORE_PASSWORD', matrix.secret_praefix)] }}
+          KEY_ALIAS: ${{ secrets[format('{0}_KEY_ALIAS', matrix.secret_praefix)] }}
+        run: |
+          set -e
+          APKSIGNER="$ANDROID_HOME/build-tools/${TARGET_SDK}.0.0/apksigner"
+          AAPT2="$ANDROID_HOME/build-tools/${TARGET_SDK}.0.0/aapt2"
+          APK=$(ls platforms/android/app/build/outputs/apk/release/*.apk | head -1)
+
+          echo "--- Kennung im fertigen APK ---"
+          KENNUNG=$("$AAPT2" dump packagename "$APK")
+          echo "$KENNUNG"
+          if [ "$KENNUNG" != "$APP_ID" ]; then
+            echo "::error::Kennung ist $KENNUNG, erwartet war $APP_ID."
+            exit 1
+          fi
+
+          echo "--- Fingerabdruck des verwendeten Schlüssels ---"
+          "$APKSIGNER" verify --print-certs "$APK" | grep -i "SHA-256 digest\|DN:"
+
+          # Gegenprobe: derselbe Wert direkt aus dem Keystore. Beide Zeilen
+          # muessen uebereinstimmen; abweichende Schreibweise (Doppelpunkte,
+          # Gross-/Kleinschreibung) wird vorher angeglichen.
+          AUS_APK=$("$APKSIGNER" verify --print-certs "$APK" \
+            | grep -i -m1 "certificate SHA-256 digest" \
+            | sed 's/.*: *//' | tr -d ': ' | tr 'A-F' 'a-f')
+          AUS_KEYSTORE=$(keytool -list -v \
+            -keystore "$RUNNER_TEMP/fairmix.keystore" \
+            -alias "$KEY_ALIAS" -storepass "$STORE_PW" \
+            | grep -i -m1 "SHA256:" \
+            | sed 's/.*: *//' | tr -d ': ' | tr 'A-F' 'a-f')
+
+          echo "APK:      $AUS_APK"
+          echo "Keystore: $AUS_KEYSTORE"
+          if [ -z "$AUS_APK" ] || [ "$AUS_APK" != "$AUS_KEYSTORE" ]; then
+            echo "::error::Das APK wurde nicht mit dem erwarteten Schlüssel signiert."
+            exit 1
+          fi
+          echo "Signatur bestätigt: ${{ matrix.edition }} trägt den Schlüssel aus ${{ matrix.secret_praefix }}_KEYSTORE_BASE64."
+
       - name: Signiertes APK hochladen
         if: steps.keystore.outputs.vorhanden == 'true'
         uses: actions/upload-artifact@v6
