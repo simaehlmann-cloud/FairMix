@@ -2,7 +2,8 @@
  *
  *     npm install --no-save playwright
  *     npx playwright install chromium
- *     node store-bilder.js
+ *     node store-bilder.js            die vier Apple-Saetze
+ *     node store-bilder.js --play     der Play-Satz (im lite/-Ordner)
  *
  * Ergebnis: store-bilder/ mit vier Saetzen zu je fuenf Bildern.
  *
@@ -60,6 +61,17 @@ const GERAETE = [
 ];
 
 const SPRACHEN = ['de', 'en'];
+
+/* --play erzeugt den Satz fuer Google Play statt der Apple-Saetze.
+   Aufzurufen im Ordner der Lite-Fassung, damit der Titel "FairMix Lite"
+   auf den Bildern steht und keine gesperrte Funktion darauf zu sehen ist. */
+const NUR_PLAY = process.argv.includes('--play');
+
+/* Play verlangt 320 bis 3840 Pixel Kantenlaenge und ein Verhaeltnis
+   zwischen 16:9 und 9:16. 360 x 640 CSS-Pixel bei dreifacher Dichte
+   ergeben 1080 x 1920 - das Mass eines gewoehnlichen Android-Telefons,
+   und die App zeichnet ihr Telefon-Layout statt des Breitbilds. */
+const PLAY_GERAET = { name: 'play-phone', css: { width: 360, height: 640 }, dichte: 3 };
 
 /* Jede Aufnahme laeuft im Seitenkontext. "tun" baut die Ansicht auf,
    "pruefen" nennt ein Element, das danach sichtbar sein MUSS. Fehlt es,
@@ -226,6 +238,95 @@ const MOTIVE = [
   }
 ];
 
+/* Die sechs Motive fuer den Play-Eintrag, in der Reihenfolge der
+   Store-Seite. Nur Ansichten, die es in Lite wirklich gibt: alles aus
+   LITE_LOCKED (Rollen, Regeln, Stufen, Puzzle, Aufgaben, Klassen) bleibt
+   draussen, sonst zeigt der Eintrag Funktionen hinter der Bezahlschranke. */
+const PLAY_MOTIVE = [
+  {
+    datei: '1-start',
+    was: 'Startseite',
+    pruefen: '#pageStart.active',
+    schritte: [
+      () => { showPage('pageStart'); }
+    ]
+  },
+  {
+    datei: '2-namen',
+    was: 'Namen verwalten',
+    pruefen: '#pageNames.active',
+    schritte: [
+      () => { showPage('pageNames'); }
+    ]
+  },
+  {
+    datei: '3-gluecksrad',
+    was: 'Zufaellige Namenswahl mit Gluecksrad',
+    pruefen: '#wheelBox:not([hidden])',
+    schritte: [
+      () => { chooseDrawStyle('wheel'); showPage('pageDraw'); },
+      () => { pickRandomNameWithAnimation(); }
+    ],
+    warten: 3500
+  },
+  {
+    datei: '4-gruppen-manuell',
+    was: 'Manuelle Gruppenbildung',
+    pruefen: '#pageGroups.active',
+    schritte: [
+      () => { showPage('pageGroups'); },
+      () => {
+        /* Von Hand entstehen die Gruppen per Fingerdruck. Das laesst sich
+           hier nicht nachstellen, deshalb dieselben Funktionen, die auch
+           die Knoepfe aufrufen - kein Eingriff in den Zustand. */
+        const feld = document.getElementById('groupNameInput');
+        const wahl = document.getElementById('groupSelect');
+        const namen = (typeof presentNames !== 'undefined' ? presentNames : []).slice(0, 9);
+        ['Gruppe A', 'Gruppe B', 'Gruppe C'].forEach(g => {
+          if (!feld) return;
+          feld.value = g;
+          addGroup();
+        });
+        namen.forEach((n, i) => {
+          if (!wahl) return;
+          wahl.value = ['Gruppe A', 'Gruppe B', 'Gruppe C'][i % 3];
+          assignToSelectedGroup(n);
+        });
+      }
+    ]
+  },
+  {
+    datei: '5-gruppen-automatisch',
+    was: 'Automatische Gruppenbildung',
+    pruefen: '#teamsContainer .teamBox',
+    schritte: [
+      () => { showPage('pageTeams'); chooseTeamMode('auto'); },
+      () => {
+        const feld = document.getElementById('teamCount');
+        if (feld) { feld.value = '4'; feld.dispatchEvent(new Event('input')); }
+        generateTeams();
+      }
+    ]
+  },
+  {
+    datei: '6-praesentation',
+    was: 'Praesentationsmodus mit Uhr',
+    pruefen: '#presentOverlay.open',
+    schritte: [
+      () => { showPage('pageTeams'); chooseTeamMode('auto'); },
+      () => {
+        const feld = document.getElementById('teamCount');
+        if (feld) { feld.value = '4'; feld.dispatchEvent(new Event('input')); }
+        generateTeams();
+      },
+      () => { openPresentation('auto'); },
+      () => { toggleTimerPanel(); },
+      () => { startTimer(); }
+    ],
+    warten: 1500
+  }
+];
+
 function server() {
   return new Promise(res => {
     const typen = {
@@ -268,9 +369,12 @@ function server() {
   let anzahl = 0;
   const fehler = [];
 
-  for (const g of GERAETE) {
+  const geraete = NUR_PLAY ? [PLAY_GERAET] : GERAETE;
+  const motive  = NUR_PLAY ? PLAY_MOTIVE : MOTIVE;
+
+  for (const g of geraete) {
     for (const sprache of SPRACHEN) {
-      const ordner = path.join(ZIEL, `ios-${g.name}-${sprache}`);
+      const ordner = path.join(ZIEL, `${NUR_PLAY ? 'play' : 'ios'}-${g.name}-${sprache}`);
       fs.mkdirSync(ordner, { recursive: true });
 
       /* Erwartete Dateigroesse in echten Pixeln. */
@@ -280,7 +384,7 @@ function server() {
       const ctx = await browser.newContext({
         viewport: g.css,
         deviceScaleFactor: g.dichte,
-        isMobile: g.name === 'iphone',
+        isMobile: g.name !== 'ipad',
         hasTouch: true,
         locale: sprache === 'de' ? 'de-DE' : 'en-GB'
       });
@@ -293,7 +397,7 @@ function server() {
       await page.evaluate(s => { setLanguage(s); loadDemoClass(); }, sprache);
       await page.waitForTimeout(400);
 
-      for (const m of MOTIVE) {
+      for (const m of motive) {
         try {
           /* Jedes Motiv startet aus demselben sauberen Zustand. Vorher
              bauten sie aufeinander auf: der Puzzle-Modus blieb stehen und
@@ -309,7 +413,10 @@ function server() {
             setLanguage(s);
             /* Rollen und Puzzle muessen eingeschaltet sein, sonst steigen
                chooseTeamMode('jigsaw') und die Rollenvergabe stumm aus. */
-            if (typeof features === 'object') {
+            /* In Lite bleiben die Zusatzfunktionen aus: sie sind dort
+               gesperrt, und ein Store-Bild darf nichts zeigen, was die
+               App nach der Installation nicht kann. */
+            if (typeof features === 'object' && typeof IS_LITE !== 'undefined' && !IS_LITE) {
               features.jigsaw = true; features.roles = true;
               features.rules = true; features.levels = true;
             }
