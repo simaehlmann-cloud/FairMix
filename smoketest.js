@@ -643,6 +643,50 @@ check('Gemischte Gruppen verteilen die Stufen', () => {
   });
 });
 
+check('Gemischt verteilt jede Stufe gleichmaessig, auch wenn die Klasse nicht aufgeht', () => {
+  /* Praxisfall aus dem Test: 18 Anwesende, 4 A, Rest B/C, 4 Gruppen.
+     Die Groessen werden 5/5/4/4. Vorher landeten die vier A nur in den
+     beiden grossen Gruppen (2/2/0/0). Geprueft wird, dass jede Stufe pro
+     Gruppe hoechstens um eins schwankt – mit und ohne Partnerhistorie,
+     fuer mehrere Klassen- und Gruppengroessen. */
+  const sicherung = vm.runInContext("JSON.stringify({ originalNames, presentNames, absentNames, groups, teams, teamNames, levels, levelMode, pairHistory, fixedPersons, pairRules, features })", ctx);
+  const feldAnzahl = $('teamCount').value, feldGroesse = $('teamSize').value;
+  try {
+    /* [Anwesende, Gruppen, Anzahl A, jede k-te Person ohne Stufe (0 = keine)] */
+    const faelle = [[18, 4, 4, 0], [17, 4, 4, 0], [19, 4, 4, 0], [22, 4, 4, 0], [23, 5, 5, 0],
+                    [26, 4, 4, 0], [13, 3, 3, 0], [21, 4, 4, 3], [19, 5, 3, 4]];
+    for (const [n, gruppen, anzahlA, ohneJede] of faelle) {
+      const namen = Array.from({ length: n }, (_, i) => 'S' + (i + 1));
+      const lv = {};
+      namen.forEach((x, i) => {
+        if (i < anzahlA) lv[x] = 1;
+        else if (!(ohneJede && i % ohneJede === 0)) lv[x] = 2 + (i % 2);
+      });
+      for (const partners of [false, true]) {
+        vm.runInContext("originalNames = " + JSON.stringify(namen) + "; presentNames = [...originalNames]; absentNames = []; groups = {}; teams = []; teamNames = []; fixedPersons = []; pairRules = { together: [], apart: [] }; pairHistory = {}; levels = " + JSON.stringify(lv) + "; levelMode = 'hetero'; features.levels = true; features.rules = false; features.fixed = false; features.partners = " + partners + ";", ctx);
+        $('teamCount').value = String(gruppen); $('teamSize').value = '';
+        for (let r = 0; r < 40; r++) {
+          g('generateTeams')();
+          const teams = g('teams').map(t => t.map(m => m.name));
+          assert(teams.length === gruppen, 'Gruppenzahl falsch');
+          [1, 2, 3].forEach(stufe => {
+            const je = teams.map(t => t.filter(x => lv[x] === stufe).length);
+            assert(Math.max(...je) - Math.min(...je) <= 1,
+                   n + ' Personen / ' + gruppen + ' Gruppen: Stufe ' + 'ABC'[stufe - 1] +
+                   ' ungleich verteilt (' + je.join('/') + ')' + (partners ? ' mit Historie' : ''));
+          });
+          const groessen = teams.map(t => t.length);
+          assert(Math.max(...groessen) - Math.min(...groessen) <= 1, 'Groessen entgleist: ' + groessen.join('/'));
+        }
+      }
+    }
+  } finally {
+    $('teamCount').value = feldAnzahl; $('teamSize').value = feldGroesse;
+    ctx.__sicherung = sicherung;
+    vm.runInContext("(() => { const s = JSON.parse(__sicherung); originalNames = s.originalNames; presentNames = s.presentNames; absentNames = s.absentNames; groups = s.groups; teams = s.teams; teamNames = s.teamNames; levels = s.levels; levelMode = s.levelMode; pairHistory = s.pairHistory; fixedPersons = s.fixedPersons; pairRules = s.pairRules; features = s.features; })()", ctx);
+  }
+});
+
 check('Gleichstarke Gruppen buendeln die Stufen', () => {
   vm.runInContext("levelMode = 'homo';", ctx);
   g('generateTeams')();

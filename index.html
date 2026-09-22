@@ -1174,7 +1174,7 @@ body.dark-mode .text-link { color: var(--border-color); }
 /* =================================================================
    FairMix Pro
    ================================================================= */
-const APP_VERSION = "1.23.2";
+const APP_VERSION = "1.23.3";
 
 /* -------------------------------------------------
    0  Fassung: Lite oder Pro
@@ -4937,6 +4937,38 @@ function generateTeams() {
     return liste;
   };
 
+  /* Reihum für die Stufenmischung: immer eine Gruppe mit den wenigsten
+     Mitgliedern. emptiest() misst dagegen den freien Platz bis zur
+     festen Zielgröße je Index – geht die Klasse nicht auf (18 auf 4 =
+     5/5/4/4), haben die ersten Gruppen anfangs einen Platz mehr frei und
+     bekamen so zwei Personen der Stufe A, bevor die anderen eine hatten
+     (2/2/0/0). Welche Gruppen die Extraperson bekommen, steht hier erst
+     am Ende fest: höchstens base + 1 Personen, und nur `rest` Gruppen
+     dürfen so groß werden. Bei Gleichstand zählt, wer von der Stufe
+     dieser Einheit am wenigsten hat, den Rest entscheidet der Zufall. */
+  const reihumGruppe = unit => {
+    const stufen = new Set(unit.map(n => levels[n] || 0));
+    const gleicheStufe = team => team.filter(m => stufen.has(levels[m] || 0)).length;
+    const gross = nameTeams.filter(tm => tm.length > base).length;
+    const passt = i => {
+      const neu = nameTeams[i].length + unit.length;
+      if (neu <= base) return true;
+      if (neu > base + 1) return false;
+      return nameTeams[i].length > base || gross < rest;
+    };
+    const offen = [];
+    for (let i = 0; i < groupsCount; i++) if (passt(i)) offen.push(i);
+    if (!offen.length) return emptiest();
+    let beste = [], bestLaenge = Infinity, bestGleich = Infinity;
+    offen.forEach(i => {
+      const laenge = nameTeams[i].length, gleich = gleicheStufe(nameTeams[i]);
+      if (laenge < bestLaenge || (laenge === bestLaenge && gleich < bestGleich)) {
+        bestLaenge = laenge; bestGleich = gleich; beste = [i];
+      } else if (laenge === bestLaenge && gleich === bestGleich) beste.push(i);
+    });
+    return beste[Math.floor(Math.random() * beste.length)];
+  };
+
   /* Wie teuer wäre es, diese Einheit in diese Gruppe zu setzen? */
   const zusatzLast = (unit, team) => {
     let sum = 0;
@@ -4950,7 +4982,7 @@ function generateTeams() {
     /* Bei aktiver Stufenmischung bleibt die Reihum-Verteilung unangetastet:
        sie erzeugt die Mischung, und die hat laut Hinweistext Vorrang.
        Die Partnerhistorie wirkt dann nur noch über das Tauschen. */
-    if (useLevels && levelMode !== 'off') return emptiest();
+    if (useLevels && levelMode !== 'off') return reihumGruppe(unit);
     const kandidaten = emptiestSet();
     if (!featureOn('partners') || kandidaten.length === 1) return kandidaten[0];
     let beste = kandidaten[0], bester = zusatzLast(unit, nameTeams[beste]);
@@ -4965,12 +4997,19 @@ function generateTeams() {
                     all.some(n => levels[n]);
 
   if (useLevels) {
-    /* Personen ohne Stufe zählen als Mitte, damit sie nicht an den Rand rutschen */
+    /* Gleichstark: Personen ohne Stufe zählen als Mitte, damit sie nicht
+       an den Rand rutschen. Gemischt: sie kommen ans Ende. Dort bildet
+       jede Stufe einen eigenen Block, den reihumGruppe() gleichmäßig
+       verteilt; zwischen die B gestreut hätten sie die B schief verteilt. */
+    const ohne = levelMode === 'hetero' ? Infinity : 2;
     const unitLevel = u => {
       const vals = u.map(n => levels[n]).filter(v => v);
-      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 2;
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : ohne;
     };
-    freeUnits.sort((a, b) => unitLevel(a) - unitLevel(b) || b.length - a.length);
+    /* Gemischt setzt „immer zusammen“-Gruppen zuerst: die Einzelnen
+       gleichen danach reihum aus, was diese Blöcke an Stufen mitbringen. */
+    const vorab = u => (levelMode === 'hetero' && u.length > 1) ? 0 : 1;
+    freeUnits.sort((a, b) => (vorab(a) - vorab(b)) || (unitLevel(a) - unitLevel(b)) || b.length - a.length);
   } else {
     freeUnits.sort((a, b) => b.length - a.length);
   }

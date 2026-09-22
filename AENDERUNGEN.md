@@ -1,3 +1,38 @@
+# FairMix 1.23.3 – Gemischte Gruppen verteilen die Stufen wirklich reihum
+
+260 Abläufe (1 neu), Validator, Stresstest (neuer Prüfteil) und Lite-Build grün.
+versionCode 12303, ios-CFBundleVersion 12303, Service-Worker-Cache `fairmix-1.23.3`.
+
+**Bei „Gemischt“ landeten die A-Schüler gebündelt, wenn die Klasse nicht
+aufging.** Praxisfall: 18 Anwesende, 4 × A, 4 Gruppen – die vier A kamen nur
+in zwei Gruppen (2/2/0/0). Ursache: Die Verteilung setzte jede Person in die
+Gruppe mit dem meisten *freien Platz* bis zur Zielgröße. Bei 18 auf 4 sind das
+5/5/4/4; die beiden großen Gruppen hatten anfangs einen Platz mehr frei und
+bekamen deshalb zwei A, bevor die kleinen eine hatten. Bei glatt aufgehenden
+Klassen trat der Fehler nie auf, deshalb fiel er in den Tests nicht auf.
+
+Neu entscheidet `reihumGruppe()` für die gemischte Verteilung: immer eine
+Gruppe mit den wenigsten Mitgliedern; bei Gleichstand die mit den wenigsten
+Personen derselben Stufe, sonst der Zufall. Welche Gruppen die Extraperson
+bekommen, steht erst am Ende fest (höchstens `base + 1`, nur `rest` Gruppen).
+Damit schwankt jede Stufe pro Gruppe höchstens um eins. Zwei Nebenänderungen
+im Modus „Gemischt“: Personen ohne Stufe kommen ans Ende statt in die Mitte
+(zwischen die B gestreut hätten sie die B schief verteilt), und „immer
+zusammen“-Gruppen werden zuerst gesetzt, die Einzelnen gleichen danach aus.
+„Gleichstark“ und „Ohne“ sind unverändert.
+
+Die Mischung wird dadurch messbar besser: Im Stresstest mit Regeln und
+fixierten Personen steigt die Zahl verschiedener Stufen je Gruppe von 2,70 auf
+2,95 von 3. Die Schwelle dort steigt entsprechend von 2,60 auf 2,85.
+
+Neu im Smoketest: 9 Klassen- und Gruppengrößen, die nicht aufgehen (auch mit
+Personen ohne Stufe), je 40 Ziehungen mit und ohne Partnerhistorie. Neu im
+Stresstest: 1.000 Zufallsklassen (10–30 Personen, 2–6 Gruppen) ohne Regeln,
+geprüft wird die Verteilung jeder Stufe. Mutationsnachweis: die alte
+Verteilung, der fehlende Stufen-Gleichstand, die feste Zielgröße je Index und
+„ohne Stufe in die Mitte“ werden von Smoke- und Stresstest erkannt; „immer
+zusammen zuerst“ abgeschaltet erkennt der Stresstest (2,57 statt ≥ 2,85).
+
 # FairMix 1.23.1 – Rechtstexte auch auf Englisch
 
 259 Abläufe, Validator, Stresstest und Lite-Build grün.

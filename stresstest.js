@@ -117,6 +117,37 @@ for (const modus of ['off', 'hetero', 'homo']) {
   }
 }
 
+/* 5. Gemischt ohne Regeln: jede Stufe pro Gruppe hoechstens um eins
+      verschieden – gerade wenn die Klasse nicht aufgeht (18 auf 4 gab
+      frueher 2/2/0/0 fuer die Stufe A). Zufaellige Klassen- und
+      Gruppengroessen, zufaellige Stufen, ein Teil ohne Stufe. */
+let stufenSchief = 0, stufenBeispiel = '';
+const MISCH_RUNDEN = 1000;
+for (let lauf = 0; lauf < MISCH_RUNDEN; lauf++) {
+  const n = 10 + Math.floor(Math.random() * 21);          /* 10 … 30 */
+  const gruppen = 2 + Math.floor(Math.random() * 5);      /* 2 … 6   */
+  const namen = Array.from({ length: n }, (_, i) => 'M' + (i + 1));
+  const lv = {};
+  namen.forEach(x => { const z = Math.floor(Math.random() * 4); if (z) lv[x] = z; });
+  set('originalNames', [...namen]); set('presentNames', [...namen]); set('absentNames', []);
+  set('groups', {}); set('teams', []); set('fixedPersons', []);
+  set('pairRules', { together: [], apart: [] });
+  set('levels', lv); set('levelMode', 'hetero');
+  set('features', { roles: false, fixed: false, rules: false, data: true, levels: true, partners: lauf % 2 === 1 });
+  if (lauf % 50 === 0) set('pairHistory', {});
+  ctx.document.getElementById = id =>
+    id === 'teamCount' ? { value: String(gruppen) } : id === 'teamSize' ? { value: '' } : stub;
+  run('generateTeams()');
+  const teams = run('teams').map(t => t.map(m => m.name));
+  [1, 2, 3].forEach(stufe => {
+    const je = teams.map(t => t.filter(x => lv[x] === stufe).length);
+    if (Math.max(...je) - Math.min(...je) > 1) {
+      stufenSchief++;
+      if (!stufenBeispiel) stufenBeispiel = n + ' Personen / ' + gruppen + ' Gruppen, Stufe ' + 'ABC'[stufe - 1] + ': ' + je.join('/');
+    }
+  });
+}
+
 const gesamt = RUNDEN * 3;
 console.log('─'.repeat(61));
 console.log('  Durchläufe gesamt:            ' + gesamt + ' (je ' + RUNDEN + ' für ohne / gemischt / gleichstark)');
@@ -127,13 +158,17 @@ console.log('  Kaputte Historie-Einträge:    ' + historieWiederholt);
 console.log('  Vermerkte Paare am Ende:      ' + historiePaare);
 console.log('  Ø Stufen je Gruppe, gemischt: ' + (qual.hetero.vielfalt / qual.hetero.gruppen).toFixed(2) + ' von 3');
 console.log('  Ø Stufen je Gruppe, gleich:   ' + (qual.homo.vielfalt / qual.homo.gruppen).toFixed(2) + ' von 3');
+console.log('  Schiefe Stufen, gemischt:     ' + stufenSchief + ' (in ' + MISCH_RUNDEN + ' Zufallsklassen ohne Regeln)');
 console.log('─'.repeat(61));
 /* Schutz gegen stille Verschlechterung: die Partnerhistorie darf die
-   Stufenmischung nicht aufweichen. 2,72 war der Wert ohne Historie. */
+   Stufenmischung nicht aufweichen. Bis 1.23.2 lag der Wert bei 2,70;
+   seit „immer zusammen“-Gruppen zuerst gesetzt werden, bei 2,95. */
 const mischung = qual.hetero.vielfalt / qual.hetero.gruppen;
-const mischungsFehler = mischung < 2.6 ? 1 : 0;
-if (mischungsFehler) console.log('  ✗ Durchmischung eingebrochen: ' + mischung.toFixed(2) + ' statt >= 2.60');
+const mischungsFehler = mischung < 2.85 ? 1 : 0;
+if (mischungsFehler) console.log('  ✗ Durchmischung eingebrochen: ' + mischung.toFixed(2) + ' statt >= 2.85');
 
-const fehler = verstoesse + getrennt + groessenfehler + historieWiederholt + mischungsFehler;
+if (stufenSchief) console.log('  ✗ Stufe ungleich verteilt, z. B. ' + stufenBeispiel);
+
+const fehler = verstoesse + getrennt + groessenfehler + historieWiederholt + mischungsFehler + stufenSchief;
 console.log(fehler ? fehler + ' FEHLER' : 'Regeln halten auch mit Stufenmischung');
 process.exit(fehler ? 1 : 0);

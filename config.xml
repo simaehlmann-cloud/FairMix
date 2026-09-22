@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <widget id="de.fairmix.app"
-        version="1.23.2"
-        android-versionCode="12301"
-        ios-CFBundleVersion="12302"
+        version="1.23.3"
+        android-versionCode="12303"
+        ios-CFBundleVersion="12303"
         xmlns="http://www.w3.org/ns/widgets"
         xmlns:cdv="http://cordova.apache.org/ns/1.0">
 
