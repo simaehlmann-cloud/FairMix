@@ -481,6 +481,17 @@ if (/ec\.europa\.eu\/consumers\/odr|OS-Plattform|Online-Streitbeilegung/.test(le
   E('Impressum verweist auf die abgeschaltete OS-Plattform (abmahnfähig)');
 if (!/§ 5 DDG/.test(legal['impressum.html'])) E('Impressum ohne Bezug auf § 5 DDG');
 if (!/§ 5 DDG/.test(legal['impressum-en.html'])) E('Englisches Impressum ohne Bezug auf § 5 DDG');
+/* Seit Oktober 2026 ist eine USt-IdNr. zugeteilt. Ihre Angabe ist nach
+   § 5 Abs. 1 Nr. 6 DDG Pflicht; fehlt sie in einer Sprache, ist das abmahnfaehig.
+   Format: DE plus neun Ziffern. Beide Fassungen muessen dieselbe Nummer nennen. */
+{
+  const ust = f => (legal[f].match(/\bDE\d{9}\b/g) || []);
+  const de = ust('impressum.html'), en = ust('impressum-en.html');
+  if (de.length !== 1) E('Impressum nennt die USt-IdNr. nicht genau einmal (DE + 9 Ziffern)');
+  if (en.length !== 1) E('Englisches Impressum nennt die USt-IdNr. nicht genau einmal (DE + 9 Ziffern)');
+  if (de.length === 1 && en.length === 1 && de[0] !== en[0])
+    E(`USt-IdNr. abweichend: deutsch ${de[0]}, englisch ${en[0]}`);
+}
 
 /* Jede Seite muss ihre Gegenstuecke erreichbar machen: die andere Sprache
    und den jeweils anderen Rechtstext. Faellt ein Verweis weg, landen

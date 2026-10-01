@@ -1,3 +1,21 @@
+# FairMix 1.23.4 – Umsatzsteuer-Identifikationsnummer im Impressum
+
+versionCode 12304, ios-CFBundleVersion 12304, Service-Worker-Cache `fairmix-1.23.4`.
+
+Das Bundeszentralamt für Steuern hat die USt-IdNr. zugeteilt (DE430437820).
+Ihre Angabe ist nach § 5 Abs. 1 Nr. 6 DDG Pflicht. Sie steht jetzt im deutschen
+und im englischen Impressum, jeweils in App und Webfassung (`docs/fairmix/`).
+Der Hinweis auf die Kleinunternehmerregelung (§ 19 UStG) bleibt daneben stehen.
+Stand beider Impressen: Oktober 2026.
+
+Der Cache-Name steigt mit, weil der Service Worker die Rechtstexte zuerst aus
+dem Cache liefert – sonst sähen Rückkehrer weiter das alte Impressum.
+App-Logik unverändert.
+
+Neu in `validate.js`: Beide Impressen müssen genau eine USt-IdNr. (DE + 9 Ziffern)
+nennen, und zwar dieselbe. Mutationsgeprüft: gekürzte, fehlende und abweichende
+Nummer werden erkannt.
+
 # FairMix 1.23.3 – Gemischte Gruppen verteilen die Stufen wirklich reihum
 
 260 Abläufe (1 neu), Validator, Stresstest (neuer Prüfteil) und Lite-Build grün.
